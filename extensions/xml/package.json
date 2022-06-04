@@ -1,6 +1,6 @@
 {
     "name": "freerange-xml",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "main": "index.js",
     "dependencies": {
         "xml2js": "^0.4.23"
