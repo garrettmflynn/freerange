@@ -1,0 +1,8 @@
+{
+    "name": "freerange-nii",
+    "version": "0.0.1",
+    "main": "index.js",
+    "dependencies": {
+        "nifti-reader-js": "^0.5.4"
+    }
+}
