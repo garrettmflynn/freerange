@@ -8,9 +8,20 @@ const fileInfo = promisify(stat);
 
 export default class FileSystem {
     constructor(options={}) {
-        this.root = options.root ?? ''
+        this.setRoot(options.root)
         this['404'] = options['404'] ?? ''
         this['#cache'] = {}
+    }
+
+    setRoot = (str) => {
+      if (str){
+        if (str.includes('./') || str.includes('../')){
+          this.root = str
+        } else {
+          if (str[0] === '/') this.root = `${str}` // Absolute
+          else this.root = `./${str}` // Auto-Relative
+        }
+      } else this.root = './'
     }
 
     list = (req, res) => {
@@ -19,7 +30,7 @@ export default class FileSystem {
         const getPaths = source => readdirSync(source, { withFileTypes: true })
 
         const drill = (name, o, key) => {
-            const arr = getPaths('./' + name)
+            const arr = getPaths(name)
             arr.forEach(dirent => {
                 const str = dirent.name 
                 if (!o[key]) o[key] = {}
@@ -37,6 +48,7 @@ export default class FileSystem {
         if (this['#cache'].data == null) drill(this.root, this['#cache'], 'data')
         
         const string = JSON.stringify(this['#cache'].data)
+
         res.writeHead(200, {
             "Content-Length": string.length,
             "Content-Type": "application/json"
@@ -50,7 +62,7 @@ export default class FileSystem {
 
     get = async (req, res) => {
 
-        const filePath = `./${this.root}/${req.params['0']}` // ?? this['404']
+        const filePath = `${this.root}/${req.params['0']}` // ?? this['404']
         
          /** Calculate Size of file */
          const { size } = await fileInfo(filePath);

@@ -3,30 +3,23 @@
 
 
 import express        from 'express'
+import cors   from 'cors'
 import bodyParser     from 'body-parser'
 import cookieParser   from 'cookie-parser'
-import path           from 'path'
+// import path           from 'path'
 
-import config         from './static/config.js'
+import config         from '../config.js'
 import defaultroutes  from './routes/default.js'
 
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
-const app           = express();
+const app = express();
 
 app.use(bodyParser.json());
 app.use(cookieParser())
+app.use(cors());
 
 /* ----- serve static ----- */
-app.use(express.static(path.join(__dirname, 'static')));
-
+// app.use(express.static(path.join(__dirname, 'static')));
 app.use('/', defaultroutes)
-// app.use('/password', passwordauth)
-// app.use('/webauthn', webuathnauth)
-
 const port = config.port || 3000;
 app.listen(port);
 console.log(`Started app on port ${port}`);
