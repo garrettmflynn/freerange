@@ -1,4 +1,4 @@
-export default async (url, options, processCallback) => {
+export default async (url, options, progressCallback) => {
 
     const response = await fetch(url, options).catch(() => {})
 
@@ -29,7 +29,7 @@ export default async (url, options, processCallback) => {
                 const chunk = value;
                 buffer.push(chunk);
 
-                if (processCallback instanceof Function) processCallback(options?.headers?.Range, bytesReceived / bytes, bytes)
+                if (progressCallback instanceof Function) progressCallback(options?.headers?.Range, bytesReceived / bytes, bytes)
 
                 // Read some more, and call this function again
                 return reader.read().then(processBuffer)

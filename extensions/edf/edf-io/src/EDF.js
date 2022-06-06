@@ -182,21 +182,23 @@ export default class EDF {
         for (var j = 0; j < this.data_records; j++) {
 
             for (var k = 0; k < this.samples_in_one_data_record; k++) {
+
+                let val;
                 if (this.bytes_per_sample == 2) {
                     var b1 = globalBytes[pos]; pos++;
                     var b2 = globalBytes[pos]; pos++;
 
                     val = (b2 << 8) + b1;
                     if (b2 >> 7 == 1) val = -flipBits(val)-1;	
-                    data.push(val * koef);
                 } else if (this.bytes_per_sample == 3) {
                     var b1 = globalBytes[pos]; pos++;
                     var b2 = globalBytes[pos]; pos++;
                     var b3 = globalBytes[pos]; pos++;
                     val = (b3 << 16) + (b2 << 8) + b1;
                     if (b3 >> 7 == 1) val = -flipBits(val)-1;
-                    data.push(val * koef);
                 }
+                data.push(val * koef);
+
             }
 
             pos += this.annotation_bytes + (this.perChannelOffset * realChannelCount)// Account for difference in annotation bytes

@@ -9,8 +9,19 @@ const remoteMount = document.querySelector('#remote')
 
 const loader = document.querySelector('visualscript-loader')
 const editor = document.querySelector('visualscript-object-editor')
+
+const maxArrLen = 50
 editor.preprocess = async (val) => {
-    const resolved = await val
+    let resolved
+
+    if (val instanceof files.RangeFile) resolved = val.body  // get body
+    else resolved = await val 
+
+    if (resolved.length > maxArrLen) {
+        console.warn(`Only showing the first ${maxArrLen} items in the array for demonstration.`)
+        resolved = resolved.slice(0, maxArrLen)
+    }
+
     return resolved
 }
 
@@ -26,9 +37,11 @@ manager.extend(edf)
 manager.extend(tsv)
 
 
+const globalProgressCallback = (id, ratio) => progressCallback(id, ratio, loader)
+
 // ------------- Get Local Dataset -------------
 localMount.onClick = async () => {
-    await manager.mount().then(onMount)
+    await manager.mount(null, globalProgressCallback).then(onMount)
 }
 
 const loaders = {}
@@ -41,15 +54,18 @@ const progressCallback = (id, ratio, loader) => {
             iterativeDiv.insertAdjacentElement('afterbegin', loaders[id])
         }
         loader = loaders[id]
-    }
+    } else loader.text = id // Set text to ID
     
     loader.progress = ratio
 }
 
 const onMount = (files) => {
     console.log('File System', files, files.system)
-    for (let name in files.system) addDataset(name)
+    const allDirs = Object.keys(files.system).reduce((a,b) => a * b.split('.').length === 1, true)
+    if (allDirs) for (let name in files.system) addDataset(name) // List datasets
+    else editor.set(files.system) // Highlight dir
 }
+
 
 const addDataset = (key) => {
     const button = document.createElement('visualscript-button')
@@ -64,15 +80,17 @@ const addDataset = (key) => {
         const dir = await manager.getSubsystem(key)
         console.log(key, dir)
 
-        if (dir.types.edf){
-            const iterative = Object.values(dir.types.edf)[0]
-            iterative.progressCallback = (id, ratio) => progressCallback(id, ratio)
-            editor.set(iterative.data)
-            console.log('Range File', iterative, iterative.data)
+        editor.set(dir.system) // Show filesystem
 
-            const value = await iterative.data.channels[0].data
-            console.log('First Channel Data', value)
-        } else console.error('No EDF files in this dataset...')
+        // if (dir.types.edf){
+        //     const iterative = Object.values(dir.types.edf)[0]
+        //     iterative.progressCallback = (id, ratio) => progressCallback(id, ratio)
+        //     editor.set(iterative.body)
+        //     console.log('Range File', iterative, iterative.body)
+
+        //     const value = await iterative.body.channels[0].data
+        //     console.log('First Channel Data', value)
+        // } else console.error('No EDF files in this dataset...')
     }
 
     controlsDiv.appendChild(button)
@@ -85,7 +103,9 @@ remoteMount.onClick = () => {
     loader.text = filesystemURL
     manager.mount(
         filesystemURL, 
-        (id, ratio) => progressCallback(id, ratio, loader)
+        globalProgressCallback
     ).then(onMount)
 }
 
+// ------------- Try Mounting from the Cache -------------
+manager.mountCache(globalProgressCallback).then(onMount)

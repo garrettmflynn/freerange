@@ -5,7 +5,7 @@ import * as datauri from './defaults/datauri.js'
 import * as native from './native/index.js'
 import request from './request.js'
 
-// import { get, set } from 'https://unpkg.com/idb-keyval@5.0.2/dist/esm/index.js';
+import { get, set } from 'idb-keyval';
 
 import { getInfo } from './index.js'
 import RangeFile from './RangeFile.js'
@@ -13,7 +13,7 @@ import RangeFile from './RangeFile.js'
 export default class FileManager {
     constructor(options = {}) {
         this.extensions = {}
-        this.ignore = options.ignore
+        this.ignore = options.ignore ?? []
         this.debug = options.debug
         this.directoryCacheName = 'freerangeCache'
         this.directoryName = ''
@@ -88,9 +88,11 @@ export default class FileManager {
 
         const toLoad = this.toLoad(file.name ?? file.path)
         if (toLoad) {
-            if (!path) path = file.webkitRelativePath ?? file.relativePath ?? file.path // Note: Only use the path
 
-            if (!(file instanceof RangeFile)) file = await this.get(file)
+            // Get Path to File
+            if (!path) path = file.webkitRelativePath ?? file.relativePath ?? file.path
+
+            if (!(file instanceof RangeFile)) file = await this.get(file, {path})
 
             // file system
             let target = files.system
@@ -104,12 +106,11 @@ export default class FileManager {
             target[file.name] = file
 
             // file type
-            const extension = file.extension
+            const extension = file.extension ?? file.name
             if (extension) {
-                const shortName = file.name.replace(`.${extension}`, '')
-                if (!files.types[extension]) files.types[extension] = {}
-                files.types[extension][shortName] = file
-            } else files.types[file.name] = file // e.g. README, CHANGES
+                if (!files.types[extension]) files.types[extension] = []
+                files.types[extension].push(file)
+            } // e.g. README, CHANGES
 
             // keep track of file count
             files.n++
@@ -138,11 +139,14 @@ export default class FileManager {
         return false; // The user did not grant permission, return false.
     }
 
-    // loadCache = async () => {
-    //     let dirHandle = await get(this.directoryCacheName);
-    //     if (dirHandle) console.log(`Retrieved directroy handle "${dirHandle.name}" from IndexedDB.`)
-    //     else return this.load(dirHandle)
-    // }
+    mountCache = async (progressCallback) => {
+        let dirHandle = await get(this.directoryCacheName);
+        if (dirHandle) {
+            console.log(`Loaded cached mount "${dirHandle.name}" from IndexedDB.`)
+            return await this.mount(dirHandle, progressCallback)
+        }
+        else return // Nothing in the cache
+    }
 
     getSubsystem = async (path) => {
 
@@ -165,23 +169,23 @@ export default class FileManager {
         return files
     }
 
-    mount = async (fileSystemInfo, callback) => {
+    mount = async (fileSystemInfo, progressCallback) => {
 
         this.reset() // Clear existing file system
 
-        // -------- File System Access API --------
         if (!fileSystemInfo) fileSystemInfo = await window.showDirectoryPicker();
+        await set(this.directoryCacheName, fileSystemInfo); // Saving file system info (of all types)
+
+        // -------- File System Access API --------
         if (fileSystemInfo instanceof FileSystemDirectoryHandle) {
-            // await set(this.directoryCacheName, dirHandle);
-            // console.log(`Stored directory handle for "${dirHandle.name}" in IndexedDB.`)
-            await this.createLocalFilesystem(fileSystemInfo)
+            await this.createLocalFilesystem(fileSystemInfo, progressCallback)
         }
 
         // -------- Remote Filesystem --------
         else if (typeof fileSystemInfo === 'string') {
 
             this.directoryName = fileSystemInfo
-            await this.request(fileSystemInfo, { mode: 'cors' }, callback)
+            await this.request(fileSystemInfo, { mode: 'cors' }, progressCallback)
                 .then(ab => {
                     let datasets = JSON.parse(new TextDecoder().decode(ab))
                     const drill = (o) => {
@@ -218,37 +222,56 @@ export default class FileManager {
         return this.files
     }
 
-    onhandle = async (handle, base = '') => {
+
+    // Iterate Asynchronously Through a Collection
+    iterAsync = async (iterable, asyncCallback) => {
+        const promises = [];
+        for await (const entry of iterable) promises.push(asyncCallback(entry));
+        const arr = await Promise.all(promises)
+        return arr
+    }
+
+    onhandle = async (handle, base = '', progressCallback) => {
 
         await this.verifyPermission(handle)
 
         // Skip Directory Name in the Base String
         if (handle.name != this.directoryName) base = (base) ? `${base}/${handle.name}` : handle.name
 
+        const files = []
         if (handle.kind === 'file') {
             const file = await handle.getFile();
-            this.loadFile(file, base)
+            if (progressCallback instanceof Function) files.push({file, base}) // Add file details to an iterable
+            else await this.loadFile(file, base) // Load file immediately
         } else if (handle.kind === 'directory') {
-
 
             const toLoad = this.toLoad(handle.name)
             if (toLoad) {
-                const promises = [];
-
-                // Iterate through All Directory Entries
-                for await (const entry of handle.values()) {
-                    if (entry.kind !== 'file') await this.onhandle(entry, base)
-                    else promises.push(this.onhandle(entry, base));
-                }
-
-                await Promise.all(promises)
+                const arr = await this.iterAsync(handle.values(), (entry) => {
+                    return this.onhandle(entry, base, progressCallback)
+                })
+                files.push(...arr.flat())
             }
         }
+
+
+        // Iterate through Entire File List (of known length) 
+        // Note: Only if callback is a function
+        if (!base){
+            let count = 0
+            await this.iterAsync(files, async (o) => {
+                await this.loadFile(o.file, o.base)
+                count++
+                progressCallback(this.directoryName, count / files.length, files.length)
+            })
+        }
+
+        return files
     }
 
-    createLocalFilesystem = async (handle) => {
+    createLocalFilesystem = async (handle, progressCallback) => {
         this.directoryName = handle.name
-        await this.onhandle(handle)
+        await this.onhandle(handle, null, progressCallback)
     }
 
     download = async (progressCallback) => {
@@ -266,7 +289,7 @@ export default class FileManager {
             const writable = await fileHandle.createWritable()
             const stream = file.stream() // Stream the whole file (???)
             await stream.pipeTo(writable)
-            progressCallback((index + 1) / this.files.list.length, this.files.list.length)
+            progressCallback(this.directoryName, (index + 1) / this.files.list.length, this.files.list.length)
         })
 
         await Promise.allSettled(promises)

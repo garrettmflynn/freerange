@@ -8,6 +8,9 @@ export default class RangeFile {
         this.debug = options.debug
         this.manager = options.manager
 
+        // Specify File Path
+        this.path = options.path
+
         this.method = (file.origin && file.path) ? 'remote' : 'local' // 'remote'
         // this.edited = false
 
@@ -30,26 +33,42 @@ export default class RangeFile {
         this.zipped = zipped
         this.extension = extension
 
-        this.data = {}
         this.storage = {}
         this[`#original`] = null
+    }
+
+    createFile = (buffer, oldFile = this.file) => {
+        let newFile = new Blob([buffer], oldFile) // Create an object that is recognized as a file
+
+        // Transfer All Properties
+        newFile.lastModified = oldFile.lastModified
+        newFile.lastModifiedDate = oldFile.lastModifiedDate
+        newFile.name = oldFile.name
+        newFile.webkitRelativePath = oldFile.webkitRelativePath ?? this.path
+        // newFile.relativePath = oldFile.relativePath ?? this.path.relativePath
+        // console.log(this)
+
+        return newFile
     }
 
 
     init = async () => {
 
         // Only Load Buffer for Local Mode
-
         if (this.method === 'local') {
+
+            let converted = false
+            // Convert File Spoofs to a Blob
             if (!(this.file instanceof Blob)) { // Catches files and blobs
                 const buffer = await this.set(this.file.data) // Load the file data
-                const newFile = new Blob([buffer]) // Create an object that is recognized as a file
-                newFile.name = this.file.name
-                this.file = newFile
+                this.file = this.createFile(buffer)
+                converted = true
             }
 
             this.storage = await getFileData(this.file).catch(this.onError)
-            // await this.get() // Get files right away (test)
+
+            // Always Convert File to Blob Spoof
+            if (!converted) this.file = this.createFile(this.storage.buffer)
         }
 
 
@@ -60,20 +79,25 @@ export default class RangeFile {
     get = async () => {
         // Re-Encode to a Buffer
         try {
-            // Decode
-            const ticDecode = performance.now()
-            if (!this[`#body`]) this[`#body`] = await this.manager.decode(this.storage, this.file).catch(this.onError)
-            const tocDecode = performance.now()
-            if (this.debug) console.warn(`Time to Decode: ${tocDecode - ticDecode}ms`)
+
+            // Decode Buffer into Cache
+            if (!this[`#body`]) {
+                const ticDecode = performance.now()
+                this[`#body`] = await this.manager.decode(this.storage, this.file).catch(this.onError)
+                const tocDecode = performance.now()
+                if (this.debug) console.warn(`Time to Decode (${this.name}): ${tocDecode - ticDecode}ms`)
+            }
 
             // Track Original Object
-            const tic = performance.now()
             if (!this['#original']) {
 
-                // Don't stringify classes
-                // TODO: May also need to account for large files in a different way...
+                const tic = performance.now()
                 if (isClass(this['#body'])) {
                     this[`#original`] = this[`#body`]
+                    console.warn('Will not deep clone file bodies that are class instances')
+                } else if (this.config){
+                    this[`#original`] = this[`#body`]
+                    console.warn('Will not stringify bodies that support range requests.')
                 } else {
                     try {
                         this[`#original`] = JSON.parse(JSON.stringify(this[`#body`]))
@@ -82,9 +106,10 @@ export default class RangeFile {
                         console.warn('Could not deep clone', e)
                     }
                 }
+
+                const toc = performance.now()
+                if (this.debug) console.warn(`Time to Deep Clone (${this.name}): ${toc - tic}ms`)
             }
-            const toc = performance.now()
-            if (this.debug) console.warn(`Time to Deep Clone: ${toc - tic}`)
 
             // Return Cache
             return this[`#body`]
@@ -105,7 +130,7 @@ export default class RangeFile {
             const ticEncode = performance.now()
             this.storage.buffer = await this.manager.encode(o, this.file).catch(this.onError)
             const tocEncode = performance.now()
-            if (this.debug) console.warn(`Time to Encode: ${tocEncode - ticEncode}ms`)
+            if (this.debug) console.warn(`Time to Encode (${this.name}): ${tocEncode - ticEncode}ms`)
 
             // Reset Cache
             this[`#body`] = o
@@ -132,24 +157,37 @@ export default class RangeFile {
 
         if (property) {
 
-            const start = await this.getProperty(property.start, parent, i)
+            let start = await this.getProperty(property.start, parent, i)
             const length = await this.getProperty(property.length, parent, i)
 
-            // Asynchronout
-            let bytes
-            if (this.method === 'remote') {
-                bytes = await this.getRemote({ key, start, length })
-                    .catch(console.error)
-            }
+            // Asynchronous
+            let bytes = []
+            if (this.method === 'remote') bytes = await this.getRemote({ key, start, length }).catch(console.error)
 
             // Synchronous
             else {
-                bytes = this.storage.buffer.slice(start, start + length)
+
+                let tempBytes = []
+                if (!Array.isArray(start)) start = [start]
+                start.forEach(i => tempBytes.push(this.storage.buffer.slice(i, i + length)))
+
+                // Merge Arrays
+                const totalLen = tempBytes.reduce((a,b) => a + b.length, 0)
+
+                const tic = performance.now()
+                let offset = 0
+                bytes = new Uint8Array(totalLen);
+                tempBytes.forEach(arr => {
+                    bytes.set(arr, offset);
+                    offset += arr.length
+                })
+                const toc = performance.now()
+                if (this.debug && start.length > 1) console.warn(`Time to merge arrays (${this.name}): ${toc-tic}ms`)
             }
 
 
             let output = (property.ignoreGlobalPostprocess) ? bytes : this.config.preprocess(bytes)
-            if (property.postprocess instanceof Function) output = await property.postprocess(output, this.data, i)
+            if (property.postprocess instanceof Function) output = await property.postprocess(output, this['#body'], i)
 
             return output
 
@@ -161,9 +199,9 @@ export default class RangeFile {
     getProperty = async (property, parent, i) => {
         if (property instanceof Function) {
             try {
-                return property(this.data, parent, i).catch(e => console.error(e))
+                return property(this['#body'], parent, i).catch(e => console.error(e))
             } catch {
-                return property(this.data, parent, i)
+                return property(this['#body'], parent, i)
             }
         } else return property
     }
@@ -191,7 +229,7 @@ export default class RangeFile {
         // Nested Properties
         else if (property.n && property.properties) {
 
-            this.data[key] = []
+            this['#body'][key] = []
 
             const n = await this.getProperty(property.n, property)
 
@@ -201,35 +239,35 @@ export default class RangeFile {
                 for (let prop in property.properties) {
                     await this.defineProperty(prop, property.properties[prop], value, i)
                 }
-                this.data[key].push(value)
+                this['#body'][key].push(value)
             }
         }
     }
 
 
     setupByteGetters = async () => {
+
+
+        // Define Body Properties
+        Object.defineProperties(this, {
+            ['body']: {
+                enumerable: true,
+                get: async () => this.get(),
+                set: async (o) => this.set(o)
+            },
+            [`#body`]: {
+                writable: true,
+                enumerable: false
+            }
+        })
+
+        // Hijack Body to Provide Gettable Properties
         if (this.config) {
-
-            // Create Class Method Getters for Bytes
-            for (let key in this.config.properties) await this.defineProperty(key, this.config.properties[key], this.data)
-
-            // Create Required Metadata
-            if (this.config.metadata instanceof Function) await this.config.metadata(this.data, this.config)
-
-
-        } else {
-            Object.defineProperties(this, {
-                ['body']: {
-                    enumerable: true,
-                    get: async () => this.get(),
-                    set: async (o) => this.set(o)
-                },
-                [`#body`]: {
-                    writable: true,
-                    enumerable: false
-                }
-            })
+            this[`#body`] = {}
+            for (let key in this.config.properties) await this.defineProperty(key, this.config.properties[key], this['#body'])
+            if (this.config.metadata instanceof Function) await this.config.metadata(this['#body'], this.config)
         }
+
     }
 
 
@@ -253,7 +291,6 @@ export default class RangeFile {
                 const splitRange = Range.slice(0, maxHeaderLength).split(', ')
                 console.warn(`Only sending ${splitRange.length - 1} from ${start.length} range requests to remain under the --max-http-header-size=${1600} limit`)
                 Range = splitRange.slice(0, splitRange.length - 1).join(', ')
-                console.log('New Range', Range.length)
             }
 
             // Set Headers

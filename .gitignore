@@ -1,6 +1,6 @@
 **/node_modules
 **/dist
 
-**/datasets/*/**
+**/datasets/*
 
 **/.DS_Store

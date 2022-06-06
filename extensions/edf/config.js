@@ -7,7 +7,7 @@
 //
 
 
-const flipBits = (n) => parseInt(n.toString(2).split('').map(bit => 1 - bit).join(''),2)
+const flipBits = (n) => parseInt(n.toString(2).split('').map(bit => 1 - bit).join(''), 2)
 
 const config = {
 
@@ -18,50 +18,50 @@ const config = {
         // ------------- TODO: Create a Macro for the File Header -------------
         // header: {
         //     properties: {
-                header: {
-                    start: 0,
-                    length: 8
-                },
-                patient: {
-                    start: 8,
-                    length: 80
-                },
-                info: {
-                    start: 88,
-                    length: 80
-                },
-                date: {
-                    start: 168,
-                    length: 8
-                },
-                time: {
-                    start: 176,
-                    length: 8
-                },
-                headerBytes: {
-                    start: 184,
-                    length: 8,
-                    postprocess: parseInt
-                },
-                dataFormat: {
-                    start: 192,
-                    length: 44
-                },
-                dataRecords: {
-                    start: 236,
-                    length: 8,
-                    postprocess: parseInt
-                },
-                dataRecordDuration: {
-                    start: 244,
-                    length: 8,
-                    postprocess: parseFloat
-                },
-                channelCount: {
-                    start: 252,
-                    length: 4,
-                    postprocess: parseInt
-                },
+        header: {
+            start: 0,
+            length: 8
+        },
+        patient: {
+            start: 8,
+            length: 80
+        },
+        info: {
+            start: 88,
+            length: 80
+        },
+        date: {
+            start: 168,
+            length: 8
+        },
+        time: {
+            start: 176,
+            length: 8
+        },
+        headerBytes: {
+            start: 184,
+            length: 8,
+            postprocess: parseInt
+        },
+        dataFormat: {
+            start: 192,
+            length: 44
+        },
+        dataRecords: {
+            start: 236,
+            length: 8,
+            postprocess: parseInt
+        },
+        dataRecordDuration: {
+            start: 244,
+            length: 8,
+            postprocess: parseFloat
+        },
+        channelCount: {
+            start: 252,
+            length: 4,
+            postprocess: parseInt
+        },
         //     }
         // },
 
@@ -139,26 +139,27 @@ const config = {
                         const bps = await o.bytesPerSample
                         return samples * bps
                     },
-                    start: async (o, info, i) => { 
+                    start: async (o, info, i) => {
 
                         const start = []
                         try {
 
-                        const hasAnnotations = await o.hasAnnotations
-                        const perChannelOffset = await o.perChannelOffset
-                        const records = await o.dataRecords
-                        const annotationBytes = await o.annotationBytes
-                        const headerBytes = await o.headerBytes
+                            const hasAnnotations = await o.hasAnnotations
+                            const perChannelOffset = await o.perChannelOffset
+                            const records = await o.dataRecords
+                            const annotationBytes = await o.annotationBytes
+                            const headerBytes = await o.headerBytes
 
-                        let realChannelCount = (hasAnnotations) ? info.n - 1 : info.n
-                        let pos = headerBytes + i * (perChannelOffset) // First run position
-                    
-                        for (var j = 0; j < records; j++) {
-                            start.push(pos)
-                            pos += annotationBytes + (perChannelOffset * realChannelCount)// Account for difference in annotation bytes
-                        }
-                        
-                    } catch (e) {console.error(e)}
+                            let realChannelCount = (hasAnnotations) ? info.n - 1 : info.n
+                            let pos = headerBytes + i * (perChannelOffset) // First run position
+
+
+                            for (var j = 0; j < records; j++) {
+                                start.push(pos)
+                                pos += annotationBytes + (perChannelOffset * realChannelCount)// Account for difference in annotation bytes
+                            }
+
+                        } catch (e) { console.error(e) }
                         return start
                     },
 
@@ -169,25 +170,27 @@ const config = {
                         try {
                             const bps = await o.bytesPerSample
                             const kcoef = await o.channels[i].k
+
                             // return arr.map(arr => {
                             const buffer = []
-                            for (let i = 0; i < arr.length; i+=bps){
+                            for (let i = 0; i < arr.length; i += bps) {
                                 let val;
                                 if (bps == 2) {
-                                    const [b1, b2] = arr.slice(i, i+2)			
+                                    const [b1, b2] = arr.slice(i, i + 2)
                                     val = (b2 << 8) + b1;
-                                    if (b2 >> 7 == 1) val = -flipBits(val)-1;	
+                                    if (b2 >> 7 == 1) val = -flipBits(val) - 1;
                                 }
                                 else if (bps == 3) {
-                                    const [b1, b2, b3] = arr.slice(i, i+3)					
+                                    const [b1, b2, b3] = arr.slice(i, i + 3)
                                     val = (b3 << 16) + (b2 << 8) + b1;
-                                    if (b3 >> 7 == 1) val = -flipBits(val)-1;	
+                                    if (b3 >> 7 == 1) val = -flipBits(val) - 1;
                                 }
                                 buffer.push(val * kcoef) // TODO: Figure out what kcoeff is...
                             }
+
                             return buffer
                             // })
-                        } catch (e) {console.error(e)}
+                        } catch (e) { console.error(e) }
                     }
                 }
             }
@@ -196,14 +199,14 @@ const config = {
         // ------------- Get EDF Annotations -------------
         annotations: {
             length: (o) => o.annotationBytes,
-            start: async (o) => { 
-                
+            start: async (o) => {
+
                 try {
                     const start = []
                     const annotationBytes = await o.annotationBytes
                     const hasAnnotations = await o.hasAnnotations
 
-                    if (hasAnnotations && annotationBytes){
+                    if (hasAnnotations && annotationBytes) {
                         let offset = await o.headerBytes
                         const records = await o.dataRecords
                         const perChannelOffset = await o.perChannelOffset
@@ -219,7 +222,7 @@ const config = {
                         return start
                     } else return [] // No annotations
 
-                } catch (e) {console.error(e)}
+                } catch (e) { console.error(e) }
             }
         }
     },
