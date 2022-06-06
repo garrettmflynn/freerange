@@ -92,7 +92,7 @@ export default class FileManager {
             // Get Path to File
             if (!path) path = file.webkitRelativePath ?? file.relativePath ?? file.path
 
-            if (!(file instanceof RangeFile)) file = await this.get(file, {path})
+            if (!(file instanceof RangeFile)) file = await this.get(file, {path, directory: this.directoryName})
 
             // file system
             let target = files.system

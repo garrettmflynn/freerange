@@ -10,6 +10,7 @@ export default class RangeFile {
 
         // Specify File Path
         this.path = options.path
+        this.directory = options.directory
 
         this.method = (file.origin && file.path) ? 'remote' : 'local' // 'remote'
         // this.edited = false
@@ -44,7 +45,7 @@ export default class RangeFile {
         newFile.lastModified = oldFile.lastModified
         newFile.lastModifiedDate = oldFile.lastModifiedDate
         newFile.name = oldFile.name
-        newFile.webkitRelativePath = oldFile.webkitRelativePath ?? this.path
+        newFile.webkitRelativePath = oldFile.webkitRelativePath || `${this.directory}/${this.path}`
         // newFile.relativePath = oldFile.relativePath ?? this.path.relativePath
         // console.log(this)
 
