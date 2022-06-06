@@ -3,6 +3,7 @@
 // https://github.com/Neurobotics/jsEDF
 // Implemented on-demand data reading
 
+const flipBits = (n) => parseInt(n.toString(2).split('').map(bit => 1 - bit).join(''),2)
 
 function arrayToAscii(array, start, length) {
     return array.slice(start, start + length).reduce((a, b) => {
@@ -185,14 +186,15 @@ export default class EDF {
                     var b1 = globalBytes[pos]; pos++;
                     var b2 = globalBytes[pos]; pos++;
 
-                    var val = ((b2 << 24) | (b1 << 16)) >> 16;
+                    val = (b2 << 8) + b1;
+                    if (b2 >> 7 == 1) val = -flipBits(val)-1;	
                     data.push(val * koef);
                 } else if (this.bytes_per_sample == 3) {
                     var b1 = globalBytes[pos]; pos++;
                     var b2 = globalBytes[pos]; pos++;
                     var b3 = globalBytes[pos]; pos++;
-
-                    var val = ((b3 << 24) | (b2 << 16) | (b1 << 8)) >> 8;
+                    val = (b3 << 16) + (b2 << 8) + b1;
+                    if (b3 >> 7 == 1) val = -flipBits(val)-1;
                     data.push(val * koef);
                 }
             }

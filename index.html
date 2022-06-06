@@ -5,11 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>freerange</title>
-    <script src="https://cdn.jsdelivr.net/npm/visualscript@0.0.3/dist/index.js"></script>
+    <link rel=stylesheet href="./style.css">
+    <script src="./external/visualscript/index.js"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/visualscript@0.0.4/dist/index.js"></script> -->
 </head>
 <body>
-    <button>Get Range</button>
-    <visualscript-loader type=linear></visualscript-loader>
+    <div id="app">
+
+        <visualscript-button id=local primary>Mount Local Filesystem</visualscript-button>
+        <visualscript-button id=remote secondary>Mount Remote Filesystem</visualscript-button>
+
+        <br/><br/>
+
+
+        <visualscript-loader type=linear></visualscript-loader>
+        <div id=controls></div>
+
+        <h2>Range File</h2>
+        <div id=editor>
+            <visualscript-object-editor></visualscript-object-editor>
+        </div>
+    </div>
+
+    <div id="iterative-absolute">
+        <h4>Range Requests</h4>
+        <div id=iterative>
+            N/A
+        </div>
+    </div>
 </html>
 </body>
 <script src="dist/index.js" type="module"></script>

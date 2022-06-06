@@ -1,5 +1,5 @@
 import getFileData from './get/index.browser.js'
-import IterativeFile from './IterativeFile.js'
+import RangeFile from './RangeFile.js'
 import FileManager from './FileManager.js'
 import registry from './registry.js'
 import * as native from './native/index.js'
@@ -18,7 +18,7 @@ export {
   registry,
   getInfo,
   getFileData,
-  IterativeFile,
+  RangeFile,
   FileManager,
   native
 }

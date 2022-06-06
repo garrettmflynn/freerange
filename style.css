@@ -1,0 +1,49 @@
+html, body {
+    margin: 0;
+    overflow: hidden;
+}
+
+body {
+    display: flex;
+    overflow: scroll;
+}
+
+#app {
+    padding: 25px;
+    flex-grow: 1;
+    height: 100vh;
+    overflow: hidden;
+}
+
+
+* {
+    box-sizing: border-box;
+}
+
+#editor {
+    padding: 10px;
+    overflow: scroll;
+    height: 500px;
+}
+
+h2 {
+    margin: 0;
+    margin-top: 20px;
+}
+
+#iterative-absolute {
+    max-width: 300px;
+    height: 100vh;
+    width: 100%;
+    border: 1px solid black;
+    background: white;
+    padding: 10px;
+    overflow: hidden;
+}
+
+#iterative {
+    padding: 10px;
+    width: 100%;
+    height: 100%;
+    overflow: scroll;
+}
