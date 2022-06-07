@@ -108,10 +108,7 @@ export default class FileManager {
                 }
 
                 file = await this.get(file, fileOptions)
-                if (addToLog) {
-                    this.changelog.push(file) // Add file to changelog
-                    console.log('Changelog', this.changelog)
-                }
+                if (addToLog) this.changelog.push(file) // Add file to changelog
             }
 
             // file system
