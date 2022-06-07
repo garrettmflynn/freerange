@@ -5,12 +5,18 @@ import request from './request.js'
 export default class RangeFile {
     constructor(file, options = {}) {
 
+        // Where To Save
+        if (file instanceof FileSystemFileHandle) this.fileSystemHandle = file
+        if (options.parent) this.parent =  options.parent // Parent in the filesystem
+
+        this.file = file // Might just be a spoof objecct
+
         this.debug = options.debug
         this.manager = options.manager
 
         // Specify File Path
-        this.path = options.path
-        this.directory = options.directory
+        this.directory = options.directory ?? ''
+        this.path = options.path // Optional
 
         this.method = (file.origin && file.path) ? 'remote' : 'local' // 'remote'
         // this.edited = false
@@ -23,37 +29,47 @@ export default class RangeFile {
             this.type = null // No types provided // TODO: Get this from a file header
         }
 
-        this.name = file.name
-        this.type = file.type
-
-        this.file = file // Might just be a spoof objecct
-
-        // Unpack File Info
-        const { mimeType, zipped, extension } = getInfo(this.file)
-        this.mimeType = mimeType
-        this.zipped = zipped
-        this.extension = extension
+        this.loadFileInfo(this.file)
 
         this.storage = {}
-        this[`#original`] = null
+        this[`#original`] = undefined
     }
 
-    createFile = (buffer, oldFile = this.file) => {
+    createFile = async (buffer, oldFile = this.file, createInSystem = false) => {
         let newFile = new Blob([buffer], oldFile) // Create an object that is recognized as a file
 
-        // Transfer All Properties
+        // Add File Metadata
         newFile.lastModified = oldFile.lastModified
         newFile.lastModifiedDate = oldFile.lastModifiedDate
         newFile.name = oldFile.name
-        newFile.webkitRelativePath = oldFile.webkitRelativePath || `${this.directory}/${this.path}`
-        // newFile.relativePath = oldFile.relativePath ?? this.path.relativePath
-        // console.log(this)
+
+        newFile.webkitRelativePath = oldFile.webkitRelativePath || `${this.directory}/${this.path || this.name}`
+
+        // Create File in System
+        if (createInSystem && !this.fileSystemHandle) this.fileSystemHandle = await this.parent.getFileHandle(this.name, { create: true });
 
         return newFile
     }
 
+    loadFileInfo = (file) => {
+
+        // Get File Information
+        this.name = file.name
+        this.type = file.type
+        const { mimeType, zipped, extension } = getInfo(file)
+        this.mimeType = mimeType
+        this.zipped = zipped
+        this.extension = extension
+    }
+
 
     init = async () => {
+
+        // Get File from Handle
+        if (this.fileSystemHandle === this.file) {
+            this.file = await this.fileSystemHandle.getFile()
+            this.loadFileInfo(this.file)
+        }
 
         // Only Load Buffer for Local Mode
         if (this.method === 'local') {
@@ -62,19 +78,20 @@ export default class RangeFile {
             // Convert File Spoofs to a Blob
             if (!(this.file instanceof Blob)) { // Catches files and blobs
                 const buffer = await this.set(this.file.data) // Load the file data
-                this.file = this.createFile(buffer)
+                this.file = await this.createFile(buffer)
                 converted = true
             }
 
             this.storage = await getFileData(this.file).catch(this.onError)
 
             // Always Convert File to Blob Spoof
-            if (!converted) this.file = this.createFile(this.storage.buffer)
+            if (!converted) this.file = await this.createFile(this.storage.buffer)
         }
 
 
         this.config = this.manager.extensions?.[this.mimeType]?.config
         await this.setupByteGetters()
+
     }
 
     get = async () => {
@@ -144,9 +161,29 @@ export default class RangeFile {
 
 
 
-    export = async () => {
-        if (this[`#body`] === this[`#original`]) return this.storage.buffer
-        else return await this.set(this[`#body`]) // Re-encode cache data
+    getBuffer = async () => {
+        if (this[`#body`] !== this[`#original`]) return this.sync()
+        return this.storage.buffer
+    }
+
+    sync = async (createInSystem) => {
+
+        if (this[`#body`] !== this[`#original`]){
+            if (!this.config){
+                console.warn(`Synching file contents with buffer (${this.name})`)
+                const buffer = await this.set(this[`#body`]) // Re-encode cache data
+                this.file = await this.createFile(buffer, this.file, createInSystem) // Create file in system if it doesn't exist
+            } else console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)
+        }
+        return this.file
+    }
+
+    save = async () => {
+        const file = await this.sync(true)
+        if (this.fileSystemHandle.size == file.size) return // Skip files which are already complete
+        const writable = await this.fileSystemHandle.createWritable()
+        const stream = file.stream() // Stream the whole file (???)
+        await stream.pipeTo(writable)
     }
 
     onError = (e) => {

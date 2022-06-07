@@ -13,6 +13,7 @@ import RangeFile from './RangeFile.js'
 export default class FileManager {
     constructor(options = {}) {
         this.extensions = {}
+        this.filesystem = {}
         this.ignore = options.ignore ?? []
         this.debug = options.debug
         this.directoryCacheName = 'freerangeCache'
@@ -34,10 +35,12 @@ export default class FileManager {
     }
 
     reset = () => {
+        this.changelog = []
         this.files = this.createFileSystemInfo()
     }
 
     get = async (file, options = {}) => {
+        if (!options.directory) options.directory = this.directoryName
         const rangeFile = new RangeFile(file, Object.assign({ manager: this, debug: this.debug }, options))
         await rangeFile.init()
         return rangeFile
@@ -84,15 +87,32 @@ export default class FileManager {
     }
 
     // --------------- Place Files into the System --------------- 
-    loadFile = async (file, path, files = this.files) => {
+    loadFile = async (file, options) => {
+
+        let path = options.path
+        const files = options.files ?? this.files
 
         const toLoad = this.toLoad(file.name ?? file.path)
         if (toLoad) {
 
             // Get Path to File
-            if (!path) path = file.webkitRelativePath ?? file.relativePath ?? file.path
+            if (!path) path = file.webkitRelativePath ?? file.relativePath ?? file.path ?? ''
+            
+            const fileOptions = {path, directory: this.directoryName}
+            if (!(file instanceof RangeFile)) {
 
-            if (!(file instanceof RangeFile)) file = await this.get(file, {path, directory: this.directoryName})
+                let addToLog;
+                if (!(file instanceof FileSystemFileHandle)) {
+                    fileOptions.parent = await this.getDirectory(path)
+                    addToLog = true
+                }
+
+                file = await this.get(file, fileOptions)
+                if (addToLog) {
+                    this.changelog.push(file) // Add file to changelog
+                    console.log('Changelog', this.changelog)
+                }
+            }
 
             // file system
             let target = files.system
@@ -117,6 +137,7 @@ export default class FileManager {
 
             // keep a list of files
             files.list.push(file)
+            return file
         } else console.warn(`Ignoring ${file.name}`)
     }
 
@@ -160,7 +181,7 @@ export default class FileManager {
             for (let key in target) {
                 const newBase = (base) ? base + '/' + key : key
                 const file = target[key]
-                if (file instanceof RangeFile) await this.loadFile(file, newBase, files) // TODO: Specify path
+                if (file instanceof RangeFile) await this.loadFile(file, {path: newBase, files})
                 else await drill(file, newBase)
             }
         }
@@ -240,9 +261,8 @@ export default class FileManager {
 
         const files = []
         if (handle.kind === 'file') {
-            const file = await handle.getFile();
-            if (progressCallback instanceof Function) files.push({file, base}) // Add file details to an iterable
-            else await this.loadFile(file, base) // Load file immediately
+            if (progressCallback instanceof Function) files.push({handle, base}) // Add file details to an iterable
+            else await this.loadFile(handle, {path: base}) // Load file immediately
         } else if (handle.kind === 'directory') {
 
             const toLoad = this.toLoad(handle.name)
@@ -260,7 +280,7 @@ export default class FileManager {
         if (!base){
             let count = 0
             await this.iterAsync(files, async (o) => {
-                await this.loadFile(o.file, o.base)
+                await this.loadFile(o.handle, {path: o.base})
                 count++
                 progressCallback(this.directoryName, count / files.length, files.length)
             })
@@ -271,28 +291,26 @@ export default class FileManager {
 
     createLocalFilesystem = async (handle, progressCallback) => {
         this.directoryName = handle.name
+        this.filesystem = handle
         await this.onhandle(handle, null, progressCallback)
     }
 
-    download = async (progressCallback) => {
+    sync = async () => {
+        return await this.iterAsync(this.files.list, async entry => await entry.sync())
+    }
 
-        const promises = this.files.list.map(async (rangeFile, index) => {
+    save = async (progressCallback) => {
 
-            const file = rangeFile.file
-            const relativePath = file.webkitRelativePath ?? file.relativePath
-
-            const buffer = await rangeFile.export()
-            console.log('Downloading', buffer, rangeFile)
-
-            const fileHandle = await native.openFileTree(dirHandle, relativePath)
-            if (fileHandle.size == file.size) return // Skip files which are already complete
-            const writable = await fileHandle.createWritable()
-            const stream = file.stream() // Stream the whole file (???)
-            await stream.pipeTo(writable)
-            progressCallback(this.directoryName, (index + 1) / this.files.list.length, this.files.list.length)
+        let i = 0
+        const promises = this.files.list.map(async (rangeFile) => {
+            await rangeFile.save()
+            i++
+            progressCallback(this.directoryName, i / this.files.list.length, this.files.list.length)
         })
 
         await Promise.allSettled(promises)
+
+        this.changelog = [] // Reset changelog
     }
 
 
@@ -340,9 +358,24 @@ export default class FileManager {
         return newDirectoryHandle
     }
 
-    // In this new directory, create a file named "My Notes.txt".
-    createFile = async (name, parent) => {
-        const newFileHandle = await parent.getFileHandle(name, { create: true });
-        return newFileHandle
+    // Get System Directory
+    getDirectory = async (path) => {
+        let parent = this.filesystem
+
+        let split = path.split('/')
+        split.pop() // Remove actual file 
+
+        for (let i = 0; i < split.length; i++){
+            let foundEntry;
+            const str = split[i]
+
+            await this.iterAsync(parent.values(), (entry) => {
+                if (entry.name === str) foundEntry = entry
+            })
+
+            if (foundEntry?.kind === 'directory') parent = foundEntry
+        }
+
+        return parent
     }
 }
