@@ -170,7 +170,7 @@ export default class RangeFile {
 
         if (this[`#body`] !== this[`#original`]){
             if (!this.config){
-                console.warn(`Synching file contents with buffer (${this.name})`)
+                console.warn(`Synching file contents with buffer (${this.name})`, this[`#body`], this[`#original`])
                 const buffer = await this.set(this[`#body`]) // Re-encode cache data
                 this.file = await this.createFile(buffer, this.file, createInSystem) // Create file in system if it doesn't exist
             } else console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)
