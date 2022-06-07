@@ -244,7 +244,11 @@ export default class FileManager {
     // Iterate Asynchronously Through a Collection
     iterAsync = async (iterable, asyncCallback) => {
         const promises = [];
-        for await (const entry of iterable) promises.push(asyncCallback(entry));
+        let i = 0
+        for await (const entry of iterable) {
+            promises.push(asyncCallback(entry, i));
+            i++
+        }
         const arr = await Promise.all(promises)
         return arr
     }
@@ -296,18 +300,17 @@ export default class FileManager {
         return await this.iterAsync(this.files.list, async entry => await entry.sync())
     }
 
-    save = async (progressCallback) => {
-
-        let i = 0
-        const promises = this.files.list.map(async (rangeFile) => {
-            await rangeFile.save()
-            i++
-            progressCallback(this.directoryName, i / this.files.list.length, this.files.list.length)
+    save = (progressCallback) => {
+        return new Promise(async (resolve, reject) => {
+            let i = 0
+            await this.iterAsync(this.files.list, async (rangeFile, j) => {
+                await rangeFile.save().catch(reject)
+                i++
+                progressCallback(this.directoryName, i / this.files.list.length, this.files.list.length)
+            })
+            this.changelog = [] // Reset changelog
+            resolve()
         })
-
-        await Promise.allSettled(promises)
-
-        this.changelog = [] // Reset changelog
     }
 
 

@@ -140,7 +140,7 @@ export default class RangeFile {
 
     set = async (o) => {
 
-        console.warn("Currently doesn't set the buffer iteratively...")
+        console.warn("Currently doesn't set the buffer for specific ranges...")
 
         try {
 
@@ -173,17 +173,26 @@ export default class RangeFile {
                 console.warn(`Synching file contents with buffer (${this.name})`, this[`#body`], this[`#original`])
                 const buffer = await this.set(this[`#body`]) // Re-encode cache data
                 this.file = await this.createFile(buffer, this.file, createInSystem) // Create file in system if it doesn't exist
-            } else console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)
-        }
-        return this.file
+                return this.file
+            } else {
+                console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)
+                return true
+            }
+        } else return true
     }
 
     save = async () => {
         const file = await this.sync(true)
-        if (this.fileSystemHandle.size == file.size) return // Skip files which are already complete
-        const writable = await this.fileSystemHandle.createWritable()
-        const stream = file.stream() // Stream the whole file (???)
-        await stream.pipeTo(writable)
+
+        if (file instanceof Blob){
+            if (this.fileSystemHandle.size == file.size) return // Skip files which are already complete
+            const writable = await this.fileSystemHandle.createWritable()
+            const stream = file.stream() // ASSUMPTION: Stream the whole file (???)
+            const tic = performance.now()
+            await stream.pipeTo(writable)
+            const toc = performance.now()
+            if (this.debug) console.warn(`Time to stream into file (${this.name}): ${toc-tic}ms`)
+        }
     }
 
     onError = (e) => {
