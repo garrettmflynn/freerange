@@ -18,8 +18,14 @@ export default class FileManager {
         this.debug = options.debug
         this.directoryCacheName = 'freerangeCache'
         this.directoryName = ''
+        this.groupConditions = new Set()
+
+        // Default Loaders
         this.extend(json)
         this.extend(text)
+
+        // Default Groups
+        this.addDefaultGroups()
 
         // Initialize File System
         this.reset()
@@ -97,8 +103,8 @@ export default class FileManager {
 
             // Get Path to File
             if (!path) path = file.webkitRelativePath ?? file.relativePath ?? file.path ?? ''
-            
-            const fileOptions = {path, directory: this.directoryName}
+
+            const fileOptions = { path, directory: this.directoryName }
             if (!(file instanceof RangeFile)) {
 
                 let addToLog;
@@ -111,7 +117,19 @@ export default class FileManager {
                 if (addToLog) this.changelog.push(file) // Add file to changelog
             }
 
-            // file system
+            this.groupConditions.forEach(func => func(file, files))
+            return file
+        } else console.warn(`Ignoring ${file.name}`)
+    }
+
+    addGroup = (condition) => {
+        this.groupConditions.add(condition)
+    }
+
+    addDefaultGroups = () => {
+
+        // file system
+        this.addGroup((file, files) => {
             let target = files.system
             let split = path.split('/')
             split = split.slice(0, split.length - 1)
@@ -119,23 +137,27 @@ export default class FileManager {
                 if (!target[k]) target[k] = {}
                 target = target[k]
             })
-
             target[file.name] = file
+        })
 
-            // file type
+        // file type
+        this.addGroup((file, files) => {
             const extension = file.extension ?? file.name
             if (extension) {
                 if (!files.types[extension]) files.types[extension] = []
                 files.types[extension].push(file)
             } // e.g. README, CHANGES
+        })
 
-            // keep track of file count
+        // keep track of file count
+        this.addGroup((_, files) => {
             files.n++
+        })
 
-            // keep a list of files
+        // keep a list of files
+        this.addGroup((file, files) => {
             files.list.push(file)
-            return file
-        } else console.warn(`Ignoring ${file.name}`)
+        })
     }
 
     // --------------- Handle Remote File System --------------- 
@@ -178,7 +200,7 @@ export default class FileManager {
             for (let key in target) {
                 const newBase = (base) ? base + '/' + key : key
                 const file = target[key]
-                if (file instanceof RangeFile) await this.loadFile(file, {path: newBase, files})
+                if (file instanceof RangeFile) await this.loadFile(file, { path: newBase, files })
                 else await drill(file, newBase)
             }
         }
@@ -262,8 +284,8 @@ export default class FileManager {
 
         const files = []
         if (handle.kind === 'file') {
-            if (progressCallback instanceof Function) files.push({handle, base}) // Add file details to an iterable
-            else await this.loadFile(handle, {path: base}) // Load file immediately
+            if (progressCallback instanceof Function) files.push({ handle, base }) // Add file details to an iterable
+            else await this.loadFile(handle, { path: base }) // Load file immediately
         } else if (handle.kind === 'directory') {
 
             const toLoad = this.toLoad(handle.name)
@@ -278,10 +300,10 @@ export default class FileManager {
 
         // Iterate through Entire File List (of known length) 
         // Note: Only if callback is a function
-        if (!base){
+        if (!base) {
             let count = 0
             await this.iterAsync(files, async (o) => {
-                await this.loadFile(o.handle, {path: o.base})
+                await this.loadFile(o.handle, { path: o.base })
                 count++
                 progressCallback(this.directoryName, count / files.length, files.length)
             })
@@ -365,7 +387,7 @@ export default class FileManager {
         let split = path.split('/')
         split.pop() // Remove actual file 
 
-        for (let i = 0; i < split.length; i++){
+        for (let i = 0; i < split.length; i++) {
             let foundEntry;
             const str = split[i]
 
