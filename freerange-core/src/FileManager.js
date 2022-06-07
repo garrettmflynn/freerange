@@ -131,9 +131,9 @@ export default class FileManager {
         // file system
         this.addGroup((file, files) => {
             let target = files.system
-            let split = path.split('/')
+            let split = file.path.split('/')
             split = split.slice(0, split.length - 1)
-            if (path) split.forEach((k, i) => {
+            if (file.path) split.forEach((k, i) => {
                 if (!target[k]) target[k] = {}
                 target = target[k]
             })
