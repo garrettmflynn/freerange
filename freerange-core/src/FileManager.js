@@ -99,6 +99,7 @@ export default class FileManager {
         const files = options.files ?? this.files
 
         const toLoad = this.toLoad(file.name ?? file.path)
+
         if (toLoad) {
 
             // Get Path to File
@@ -109,7 +110,8 @@ export default class FileManager {
 
                 let addToLog;
                 if (!(file instanceof FileSystemFileHandle)) {
-                    fileOptions.parent = await this.open(path, 'directory', false) // Don't create file
+                    const pathWithoutName = path.split('/').slice(0, -1).join('/')
+                    fileOptions.parent = await this.open(pathWithoutName, 'directory', false) // Don't create file
                     addToLog = true
                 }
 

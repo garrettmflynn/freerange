@@ -223,10 +223,11 @@ export default class RangeFile {
                 if (this.debug && start.length > 1) console.warn(`Time to merge arrays (${this.name}): ${toc-tic}ms`)
             }
 
-
+            const tic = performance.now()
             let output = (property.ignoreGlobalPostprocess) ? bytes : this.config.preprocess(bytes)
             if (property.postprocess instanceof Function) output = await property.postprocess(output, this['#body'], i)
-
+            const toc = performance.now()
+            if (this.debug) console.warn(`Time to postprocess bytes (${this.name}): ${toc-tic}ms`)
             return output
 
         } else {

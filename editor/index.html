@@ -8,14 +8,41 @@
     <link rel=stylesheet href="./style.css">
 </head>
 <body>
-    <nav>
-        <span id=name>Brains@Play Plugins</span>
-        <div>
-            <button id=select>Select Directory</button>
-            <button id=save>Save</button>
-        </div>
-    </nav>
-    <textarea></textarea>
+    <visualscript-app id="app" name="Global EEG Norms">
+		<visualscript-nav>
+			<span id=name>Brains@Play Editor</span><br>
+		</visualscript-nav>
+		<visualscript-dashboard>
+		<visualscript-sidebar>
+			<visualscript-sidebar-header>Controls</visualscript-sidebar-header>
+			<visualscript-control id=select type="button" label="Select Project">View</visualscript-control>
+			<visualscript-control id=save type="button" label="Save Changes">Save</visualscript-control>
+		</visualscript-sidebar>
+	  
+		<visualscript-main>
+			<visualscript-overlay>
+				<div id="inneroverlay">
+					<visualscript-loader type="linear"></visualscript-loader>
+				</div>
+			</visualscript-overlay>
+		</visualscript-main>
+		</visualscript-dashboard>
+	  </visualscript-app>
+	
+	
+	  <!-- <visualscript-dashboard toggletext="Advanced Mode">
+		<visualscript-nav>Advanced Editor</visualscript-nav>
+	  <visualscript-sidebar></visualscript-sidebar>
+	  <visualscript-main id="main">
+		<visualscript-tab id="dataacquisition" name="Data Acquisition">
+			<section>
+				<div id="acquisition">
+				</div>
+			</section>
+		</visualscript-tab>
+	  </visualscript-main>
+	</visualscript-dashboard> -->
+
 </body>
 <script src="dist/index.js"></script>
 </html>

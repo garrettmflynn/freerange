@@ -1,3 +1,4 @@
+import * as visualscript from 'https://cdn.jsdelivr.net/npm/visualscript'
 import * as files from '../freerange-core/src/index.js'
 
 
@@ -9,14 +10,10 @@ const manager = new files.FileManager({
 })
 
 // -------------- Setup Elememts --------------
-const texteditor = document.querySelector('textarea')
 const select = document.querySelector('#select')
 const save = document.querySelector('#save')
 const displayName = document.querySelector('#name')
-
-texteditor.oninput = (ev) => {
-    if (file) file.body = ev.target.value
-}
+const main = document.querySelector('visualscript-main')
 
 save.onclick = manager.save
 select.onclick = () => manager.mount().then(onMount)
@@ -34,17 +31,32 @@ document.onkeydown = async (e) => {
 const onMount = async (info) => {
     console.log('File System', info, manager)
     file = await manager.open('index.js')
-    const text = await file.body
-    texteditor.value = text
-
-    initializeApp()
+    initializeApp(file)
 }
 
 // -------------- Handle Brains@Play Application --------------
-const initializeApp = async () => {
+const initializeApp = async (file) => {
 
     const app = await manager.import(file)
     displayName.innerHTML = `${app.name}`
+
+    // Display Plugins
+    const tabs = []
+
+    await Promise.all(manager.files.list.map(async f => {
+        const tab = document.createElement('visualscript-tab')
+        tab.label = app.name
+        const texteditor = document.createElement('textarea')
+        tab.appendChild(texteditor)
+        texteditor.value = await f.body
+        texteditor.oninput = (ev) => f.body = ev.target.value
+        tabs.push(tab)
+        main.appendChild(tab)
+    }))
+
+    main.tabs = tabs
+
+    // Start App
     start(app)
 }
 

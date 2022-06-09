@@ -9,17 +9,13 @@ html, body {
 * {
     box-sizing: border-box;
 }
-nav {
-    padding: 25px 50px;
-    background: black;
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
 
-nav span {
-    font-weight: bold;
+
+
+visualscript-main {
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
 }
 
 textarea {

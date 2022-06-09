@@ -16,3 +16,6 @@ A class to help manage the local filesystem.
 2. Currently only supports range requests for .edf files. Implement more!
 3. Currently only supports iterative read. Allow writing to specific bytes!
 4. Implement NWB again...
+
+## Known Issue
+1. Postprocessing a large number of bytes (e.g. for EDF files) results in long wait times.
