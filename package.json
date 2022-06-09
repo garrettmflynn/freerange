@@ -10,7 +10,6 @@
     "start": "concurrently \"npm run backend\" \"npm run frontend\"",
     "frontend": "tinybuild",
     "backend": "node --max-http-header-size=16000 example/backend/main.js",
-    "publish-core": "cd freerange-core && yarn publish",
     "which": "which tinybuild"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import { getInfo } from '../index.js'
+import getInfo from '../getInfo.js'
 const defaultMethod = 'buffer'
 
 const fileIgnore = ['.DS_Store']
@@ -8,13 +8,9 @@ export default (file) => {
 
     const { extension } = getInfo(file)
 
+    // ----------------- Use Decoders -----------------
     return new Promise((resolve, reject) => {
 
-        // ----------------- Ignore Arbitrary Files -----------------
-        if (fileIgnore.includes(file.name)) reject(`Ignoring ${file.name} files`)
-
-        // ----------------- Use Decoders -----------------
-        else {
             const reader = new FileReader()
             const methods = {
                 'dataurl': 'readAsDataURL',
@@ -38,6 +34,5 @@ export default (file) => {
             }
 
             reader[methods[method]](file)
-        }
     })
 }

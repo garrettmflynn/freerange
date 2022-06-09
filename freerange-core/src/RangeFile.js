@@ -1,4 +1,6 @@
-import { getFileData, getInfo } from './index.js'
+import getFileData from './get/index.browser.js'
+import getInfo from './getInfo.js'
+
 import { isClass } from './utils/classes.js'
 import request from './request.js'
 
@@ -77,7 +79,7 @@ export default class RangeFile {
             let converted = false
             // Convert File Spoofs to a Blob
             if (!(this.file instanceof Blob)) { // Catches files and blobs
-                await this.set(this.file.data) // Load the file data
+                this.set(this.file.data) // Load the file data
                 await this.sync()
                 converted = true
             }
@@ -85,7 +87,10 @@ export default class RangeFile {
             this.storage = await getFileData(this.file).catch(this.onError)
 
             // Always Convert File to Blob Spoof
-            if (!converted) this.file = await this.createFile(this.storage.buffer)
+            if (!converted) {
+                if (this.storage)  this.file = await this.createFile(this.storage.buffer)
+                else console.warn(`No buffer created for ${this.name}...`)
+            }
         }
 
 
@@ -139,13 +144,13 @@ export default class RangeFile {
         }
     }
 
-    set = async (o) => this[`#body`] = o
+    set = (o) => this[`#body`] = o
 
     sync = async (createInSystem) => {
 
         if (this[`#body`] !== this[`#original`]){
             if (!this.config){
-                console.warn(`Synching file contents with buffer (${this.name})`, this[`#body`], this[`#original`])
+                console.warn(`Synching file contents with buffer (${this.name})`, `${this[`#original`]} > ${this[`#body`]}`)
                 
                 // Encode New Object
                 try {
@@ -292,7 +297,7 @@ export default class RangeFile {
             ['body']: {
                 enumerable: true,
                 get: async () => this.get(),
-                set: async (o) => this.set(o)
+                set: (o) => this.set(o)
             },
             [`#body`]: {
                 writable: true,

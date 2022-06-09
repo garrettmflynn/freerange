@@ -1,0 +1,26 @@
+
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- <script src="./dist/index.js"></script> -->
+        <!-- <script src="https://cdn.jsdelivr.net/npm/freerange@0.0.20"></script> -->
+    </head>
+    <body>  
+        <button>Save text.txt File</button>
+    </body>
+    <script type="module">
+        // import * as freerange from 'https://cdn.jsdelivr.net/npm/freerange/dist/index.esm.js'
+        import * as freerange from './dist/index.esm.js'
+        const manager = new freerange.FileManager()
+
+        document.querySelector('button').onclick = async () => {
+            await manager.mount()
+            const file = await manager.open('test.txt')
+            console.log('Existing Text', await file.body)
+            file.body = 'Hello world'
+            await manager.save()
+        }
+
+    </script>
+</html>
+        

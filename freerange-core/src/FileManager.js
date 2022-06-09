@@ -6,7 +6,7 @@ import request from './request.js'
 
 import { get, set } from 'idb-keyval';
 
-import { getInfo } from './index.js'
+import getInfo from './getInfo.js'
 import RangeFile from './RangeFile.js'
 import { objToString } from './utils/parse.utils.js'
 

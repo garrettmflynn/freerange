@@ -1,16 +1,29 @@
 # freerange
 File import and export utilities with free range-request support for remote files
 
-## How to Use
+## Installation
+### Browser
 ```javascript
-import * as freerange from `https://cdn.jsdelivr.net/npm/freerange`
-const manager = new freerange.FileManager()
-await manager.mount()
-const file = manager.open('test.txt')
-file.body = 'Hello world'
-await manager.save()
+<script src="https://cdn.jsdelivr.net/npm/freerange@0.0.20"></script>
 ```
 
+### ES Modules
+```javascript
+import * as freerange from `https://cdn.jsdelivr.net/npm/freerange/index.esm.js`
+```
+
+## Getting Started
+```javascript
+const manager = new freerange.FileManager() // instantiate a manager
+
+document.querySelector('button').onclick = async () => {
+    await manager.mount() // choose a directory in your local filesystem
+    const file = await manager.open('test.txt') // get the file
+    console.log('Existing Text', await file.body) // get file contents
+    file.body = 'Hello world' // set file contents
+    await manager.save() // save file contents (if changed)
+}
+```
 
 ## Classes
 ### FileManager
