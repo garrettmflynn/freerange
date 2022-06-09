@@ -1,19 +1,20 @@
 import * as text from './defaults/text.js'
 import * as gzip from './defaults/gzip.js'
 import * as json from './defaults/json.js'
+import * as tsv from './defaults/tsv.js'
+import * as csv from './defaults/csv.js'
 import * as datauri from './defaults/datauri.js'
 import request from './request.js'
 
 import { get, set } from 'idb-keyval';
-
-import getInfo from './getInfo.js'
 import RangeFile from './RangeFile.js'
 import { objToString } from './utils/parse.utils.js'
 
 export default class FileManager {
     constructor(options = {}) {
         this.extensions = {}
-        this.filesystem = {}
+        this.registry = {}
+        this.native = {}
         this.ignore = options.ignore ?? []
         this.debug = options.debug
         this.directoryCacheName = 'freerangeCache'
@@ -23,6 +24,8 @@ export default class FileManager {
         // Default Loaders
         this.extend(json)
         this.extend(text)
+        this.extend(tsv)
+        this.extend(csv)
 
         // Default Groups
         this.addDefaultGroups()
@@ -53,7 +56,7 @@ export default class FileManager {
     }
 
     encode = async (o, fileInfo) => {
-        const { mimeType, zipped } = getInfo(fileInfo) // Spoof the original file
+        const { mimeType, zipped } = this.getInfo(fileInfo) // Spoof the original file
 
         let buffer = ''
         if (mimeType && (mimeType.includes('image/') || mimeType.includes('video/'))) content = datauri.encode(o)
@@ -69,9 +72,19 @@ export default class FileManager {
         return buffer
     }
 
+    getInfo = (file) => {
+        let [name, ...extension] = (file.name ?? '').split('.') // Allow no name
+        // Swap file mimeType if zipped
+        let mimeType = file.type
+        const zipped = (mimeType === this.registry['gz'] || extension.includes('gz'))
+        if (zipped) extension.pop() // Pop off .gz
+        if (zipped || !mimeType) mimeType = this.registry[extension[0]]
+        return { mimeType, zipped, extension: extension.join('.') }
+    }
+
     decode = async (o, fileInfo) => {
 
-        const { mimeType, zipped } = getInfo(fileInfo)
+        const { mimeType, zipped } = this.getInfo(fileInfo)
 
         if (zipped) o = await gzip.decode(o, mimeType)
         if (mimeType && (mimeType.includes('image/') || mimeType.includes('video/'))) return o.dataurl
@@ -86,6 +99,8 @@ export default class FileManager {
 
     extend = (ext) => {
         this.extensions[ext.mimeType] = ext
+        const guessExtension = ext.mimeType.split('-').splice(-1)[0]
+        this.registry[ext.extension ?? guessExtension] = ext.mimeType
     }
 
     toLoad = (name) => {
@@ -316,7 +331,7 @@ export default class FileManager {
 
     createLocalFilesystem = async (handle, progressCallback) => {
         this.directoryName = handle.name
-        this.filesystem = handle
+        this.native = handle
         await this.onhandle(handle, null, progressCallback)
     }
 
@@ -372,7 +387,7 @@ export default class FileManager {
     open = async (path, type, create=true) => {
 
         let system = this.files.system
-        let directoryHandle = this.filesystem
+        let directoryHandle = this.native
         const pathTokens = path.split('/')
         let dirTokens = pathTokens.slice(0, -1)
         const filename = pathTokens.slice(-1)[0]

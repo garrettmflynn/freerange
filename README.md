@@ -1,10 +1,10 @@
 # freerange
-File import and export utilities with free range-request support for remote files
+File import and export utilities with **free** range-request support for remote files.
 
 ## Installation
 ### Browser
 ```javascript
-<script src="https://cdn.jsdelivr.net/npm/freerange@0.0.20"></script>
+<script src="https://cdn.jsdelivr.net/npm/freerange"></script>
 ```
 
 ### ES Modules
@@ -17,20 +17,29 @@ import * as freerange from `https://cdn.jsdelivr.net/npm/freerange/index.esm.js`
 const manager = new freerange.FileManager() // instantiate a manager
 
 document.querySelector('button').onclick = async () => {
-    await manager.mount() // choose a directory in your local filesystem
-    const file = await manager.open('test.txt') // get the file
-    console.log('Existing Text', await file.body) // get file contents
-    file.body = 'Hello world' // set file contents
-    await manager.save() // save file contents (if changed)
+
+     await manager.mount()// choose a directory in your local filesystem
+
+    // Create a Text File
+    const text = await manager.open('test.txt') // get (or create) the file
+    const textContents = await text.body // get file contents
+    console.log('Existing Text', textContents)
+    text.body = 'Hello world' // set file contents
+
+    // Create a JSON File
+    const json = await manager.open('test.json')
+    const jsonContents = await json.body
+    console.log('Existing JSON', jsonContents)
+    json.body = {key: 'value'}
+
+    const csv = await manager.open('test.csv')
+    const csvContents = await csv.body
+    console.log('Existing CSV', csvContents)
+    csvContents.push({row: csvContents.length}) // We can change the csvContent variable directly because it is an object reference
+
+    await manager.save() // save file contents for all files (if changed)
 }
 ```
-
-## Classes
-### FileManager
-A class to help manage files on the browser. 
-
-### FileSystem
-A class to help manage the local filesystem.
 
 ## Roadmap
 1. Currently, multi-part requests are broken up client-side. Fix this!
@@ -38,7 +47,7 @@ A class to help manage the local filesystem.
     - This current approach is very expensive. Concatenate on the server!
 2. Currently only supports range requests for .edf files. Implement more!
 3. Currently only supports iterative read. Allow writing to specific bytes!
-4. Implement NWB again...
+4. Implement NWB as an extension...
 
 ## Known Issue
 1. Postprocessing a large number of bytes (e.g. for EDF files) results in long wait times.

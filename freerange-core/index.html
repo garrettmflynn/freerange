@@ -6,7 +6,7 @@
         <!-- <script src="https://cdn.jsdelivr.net/npm/freerange@0.0.20"></script> -->
     </head>
     <body>  
-        <button>Save text.txt File</button>
+        <button>Save Test Files</button>
     </body>
     <script type="module">
         // import * as freerange from 'https://cdn.jsdelivr.net/npm/freerange/dist/index.esm.js'
@@ -15,9 +15,22 @@
 
         document.querySelector('button').onclick = async () => {
             await manager.mount()
-            const file = await manager.open('test.txt')
-            console.log('Existing Text', await file.body)
-            file.body = 'Hello world'
+            const text = await manager.open('test.txt')
+            const textContents = await text.body
+            console.log('Existing Text', textContents)
+            text.body = 'Hello world'
+
+
+            const json = await manager.open('test.json')
+            const jsonContents = await json.body
+            console.log('Existing JSON', jsonContents)
+            json.body = {key: 'value'}
+
+            const csv = await manager.open('test.csv')
+            const csvContents = await csv.body
+            console.log('Existing CSV', csvContents)
+            csvContents.push({row: csvContents.length})
+
             await manager.save()
         }
 

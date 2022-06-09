@@ -14,3 +14,5 @@ export const decode = (o) => {
 export const encode = (o) => pako.deflate(o);
 
 export const mimeType = "application/x-gzip"
+export const extension = 'gz'
+

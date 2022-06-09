@@ -1,8 +1,9 @@
-import getFileData from './get/index.browser.js'
 import getInfo from './getInfo.js'
 
 import { isClass } from './utils/classes.js'
 import request from './request.js'
+
+const useRawArrayBuffer = ['nii', 'nwb'] // TODO: Handle this within extensions
 
 export default class RangeFile {
     constructor(file, options = {}) {
@@ -84,7 +85,7 @@ export default class RangeFile {
                 converted = true
             }
 
-            this.storage = await getFileData(this.file).catch(this.onError)
+            this.storage = await this.getFileData().catch(this.onError)
 
             // Always Convert File to Blob Spoof
             if (!converted) {
@@ -138,7 +139,7 @@ export default class RangeFile {
             // Return Cache
             return this[`#body`]
         } catch (e) {
-            const msg = `No decoder for ${this.name} - ${this.type || 'No file type recognized'}`
+            const msg = `Decoder failed for ${this.name} - ${this.type || 'No file type recognized'}`
             console.warn(msg, e)
             return {}
         }
@@ -148,33 +149,39 @@ export default class RangeFile {
 
     sync = async (createInSystem) => {
 
-        if (this[`#body`] !== this[`#original`]){
-            if (!this.config){
-                console.warn(`Synching file contents with buffer (${this.name})`, `${this[`#original`]} > ${this[`#body`]}`)
-                
-                // Encode New Object
-                try {
-                    const ticEncode = performance.now()
-                    this.storage.buffer = await this.manager.encode(this[`#body`], this.file).catch(this.onError)
-                    const tocEncode = performance.now()
-                    if (this.debug) console.warn(`Time to Encode (${this.name}): ${tocEncode - ticEncode}ms`)
-                } catch (e) {
-                    console.error('Could not encode as a buffer', o, this.mimeType, this.zipped)
-                    this.onError(e)
-                }
+        if (!this.config){
 
-                // Create New File
-                this.file = await this.createFile(this.storage.buffer, this.file, createInSystem) // Create file in system if it doesn't exist
+            const bodyString = JSON.stringify(this[`#body`])
+            const ogString = JSON.stringify(this[`#original`])
 
-                // Start Tracking Original File Again
-                this.setOriginal()
+            // Check Equivalence
+            if (bodyString !== ogString){
+                    console.warn(`Synching file contents with buffer (${this.name})`, `${ogString} > ${bodyString}`)
+                    
+                    // Encode New Object
+                    try {
+                        const ticEncode = performance.now()
+                        this.storage.buffer = await this.manager.encode(this[`#body`], this.file).catch(this.onError)
+                        const tocEncode = performance.now()
+                        if (this.debug) console.warn(`Time to Encode (${this.name}): ${tocEncode - ticEncode}ms`)
+                    } catch (e) {
+                        console.error('Could not encode as a buffer', o, this.mimeType, this.zipped)
+                        this.onError(e)
+                    }
 
-                return this.file
-            } else {
-                console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)
-                return true
-            }
-        } else return true
+                    // Create New File
+                    this.file = await this.createFile(this.storage.buffer, this.file, createInSystem) // Create file in system if it doesn't exist
+
+                    // Start Tracking Original File Again
+                    this.setOriginal()
+
+                    return this.file
+
+            } else return true
+        } else {
+            console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)
+            return true
+        }
     }
 
     save = async () => {
@@ -342,5 +349,36 @@ export default class RangeFile {
             const buffer = await request(`${this.remote.origin}/${this.file.path}`, options)
             return buffer
         }
+    }
+
+    getFileData = () => {
+
+    // ----------------- Use Decoders -----------------
+    return new Promise((resolve, reject) => {
+
+            const reader = new FileReader()
+            const methods = {
+                'dataurl': 'readAsDataURL',
+                'buffer': 'readAsArrayBuffer'
+            }
+
+            let method = 'buffer'
+            if (this.file.type && (this.file.type.includes('image/') || this.file.type.includes('video/'))) method = 'dataurl'
+            
+            reader.onloadend = e => {
+                if (e.target.readyState == FileReader.DONE) {
+                    if (!e.target.result) return reject(`No result returned using the ${method} method on ${this.file.name}`)
+
+                    let data = e.target.result
+                    if (data.length === 0) {
+                        console.warn(`${this.file.name} appears to be empty`)
+                        reject(false)
+                    } else if (method === 'buffer' && !useRawArrayBuffer.includes(this.extension)) data = new Uint8Array(data) // Keep .nii files as raw ArrayBuffer
+                    resolve({file: this.file, [method]: data})
+                }
+            }
+
+            reader[methods[method]](this.file)
+    })
     }
 }
