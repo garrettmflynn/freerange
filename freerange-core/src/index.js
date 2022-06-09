@@ -2,7 +2,6 @@ import getFileData from './get/index.browser.js'
 import RangeFile from './RangeFile.js'
 import FileManager from './FileManager.js'
 import registry from './registry.js'
-import * as native from './native/index.js'
 
 const getInfo = (file) => {
   let [name, ...extension] = (file.name ?? '').split('.') // Allow no name
@@ -20,5 +19,4 @@ export {
   getFileData,
   RangeFile,
   FileManager,
-  native
 }

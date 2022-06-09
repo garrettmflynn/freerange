@@ -1,5 +1,5 @@
 import { getFileData, getInfo } from './index.js'
-import { isClass } from './utils/utils.js'
+import { isClass } from './utils/classes.js'
 import request from './request.js'
 
 export default class RangeFile {
@@ -77,8 +77,8 @@ export default class RangeFile {
             let converted = false
             // Convert File Spoofs to a Blob
             if (!(this.file instanceof Blob)) { // Catches files and blobs
-                const buffer = await this.set(this.file.data) // Load the file data
-                this.file = await this.createFile(buffer)
+                await this.set(this.file.data) // Load the file data
+                await this.sync()
                 converted = true
             }
 
@@ -94,6 +94,27 @@ export default class RangeFile {
 
     }
 
+    setOriginal = () => {
+        const tic = performance.now()
+        if (isClass(this['#body'])) {
+            this[`#original`] = null; //this[`#body`]
+            console.warn('Will not deep clone file bodies that are class instances')
+        } else if (this.config){
+            this[`#original`] = null //this[`#body`]
+            console.warn('Will not stringify bodies that support range requests.')
+        } else {
+            try {
+                this[`#original`] = JSON.parse(JSON.stringify(this[`#body`]))
+            } catch (e) {
+                this[`#original`] = null //this[`#body`]
+                console.warn('Could not deep clone', e)
+            }
+        }
+
+        const toc = performance.now()
+        if (this.debug) console.warn(`Time to Deep Clone (${this.name}): ${toc - tic}ms`)
+    }
+
     get = async () => {
         // Re-Encode to a Buffer
         try {
@@ -107,27 +128,7 @@ export default class RangeFile {
             }
 
             // Track Original Object
-            if (!this['#original']) {
-
-                const tic = performance.now()
-                if (isClass(this['#body'])) {
-                    this[`#original`] = this[`#body`]
-                    console.warn('Will not deep clone file bodies that are class instances')
-                } else if (this.config){
-                    this[`#original`] = this[`#body`]
-                    console.warn('Will not stringify bodies that support range requests.')
-                } else {
-                    try {
-                        this[`#original`] = JSON.parse(JSON.stringify(this[`#body`]))
-                    } catch (e) {
-                        this[`#original`] = this[`#body`]
-                        console.warn('Could not deep clone', e)
-                    }
-                }
-
-                const toc = performance.now()
-                if (this.debug) console.warn(`Time to Deep Clone (${this.name}): ${toc - tic}ms`)
-            }
+            if (this['#original'] === undefined) this.setOriginal()
 
             // Return Cache
             return this[`#body`]
@@ -138,41 +139,31 @@ export default class RangeFile {
         }
     }
 
-    set = async (o) => {
-
-        console.warn("Currently doesn't set the buffer for specific ranges...")
-
-        try {
-
-            // Encode New Object
-            const ticEncode = performance.now()
-            this.storage.buffer = await this.manager.encode(o, this.file).catch(this.onError)
-            const tocEncode = performance.now()
-            if (this.debug) console.warn(`Time to Encode (${this.name}): ${tocEncode - ticEncode}ms`)
-
-            // Reset Cache
-            this[`#body`] = o
-            return this.storage.buffer
-        } catch (e) {
-            console.error('Could not encode as a buffer', o, this.mimeType, this.zipped)
-            this.onError(e)
-        }
-    }
-
-
-
-    getBuffer = async () => {
-        if (this[`#body`] !== this[`#original`]) return this.sync()
-        return this.storage.buffer
-    }
+    set = async (o) => this[`#body`] = o
 
     sync = async (createInSystem) => {
 
         if (this[`#body`] !== this[`#original`]){
             if (!this.config){
                 console.warn(`Synching file contents with buffer (${this.name})`, this[`#body`], this[`#original`])
-                const buffer = await this.set(this[`#body`]) // Re-encode cache data
-                this.file = await this.createFile(buffer, this.file, createInSystem) // Create file in system if it doesn't exist
+                
+                // Encode New Object
+                try {
+                    const ticEncode = performance.now()
+                    this.storage.buffer = await this.manager.encode(this[`#body`], this.file).catch(this.onError)
+                    const tocEncode = performance.now()
+                    if (this.debug) console.warn(`Time to Encode (${this.name}): ${tocEncode - ticEncode}ms`)
+                } catch (e) {
+                    console.error('Could not encode as a buffer', o, this.mimeType, this.zipped)
+                    this.onError(e)
+                }
+
+                // Create New File
+                this.file = await this.createFile(this.storage.buffer, this.file, createInSystem) // Create file in system if it doesn't exist
+
+                // Start Tracking Original File Again
+                this.setOriginal()
+
                 return this.file
             } else {
                 console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)

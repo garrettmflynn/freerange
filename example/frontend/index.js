@@ -3,12 +3,33 @@ import * as files from '../../freerange-core/src/index.js'
 import * as edf from '../../extensions/edf/index.js'
 import * as tsv from '../../extensions/tsv/index.js'
 
+// ------------- Get File Manager -------------
+let file;
+const manager = new files.FileManager({
+    debug: true,
+    ignore: ['DS_Store']
+})
+manager.extend(edf)
+manager.extend(tsv)
+
 // ------------- Get Elements -------------
 const localMount = document.querySelector('#local')
 const remoteMount = document.querySelector('#remote')
 
 const loader = document.querySelector('visualscript-loader')
 const editor = document.querySelector('visualscript-object-editor')
+const texteditor = document.querySelector('textarea')
+
+document.onkeydown = async (e) => {
+    if (e.metaKey && e.code == 'KeyS') {
+        e.preventDefault()
+        manager.save()
+    }
+};
+
+texteditor.oninput = (ev) => {
+    if (file) file.body = ev.target.value
+}
 
 const maxArrLen = 50
 editor.preprocess = async (val) => {
@@ -27,15 +48,6 @@ editor.preprocess = async (val) => {
 
 const iterativeDiv = document.querySelector('#iterative')
 const controlsDiv = document.querySelector('#controls')
-
-// ------------- Get File Manager -------------
-const manager = new files.FileManager({
-    debug: true,
-    ignore: ['DS_Store']
-})
-manager.extend(edf)
-manager.extend(tsv)
-
 
 const globalProgressCallback = (id, ratio) => progressCallback(id, ratio, loader)
 
@@ -59,11 +71,16 @@ const progressCallback = (id, ratio, loader) => {
     loader.progress = ratio
 }
 
-const onMount = (files) => {
-    console.log('File System', files, files.system)
+const onMount = async (files) => {
+    console.log('File System', files, files.system, manager)
     const allDirs = Object.keys(files.system).reduce((a,b) => a * b.split('.').length === 1, true)
     if (allDirs) for (let name in files.system) addDataset(name) // List datasets
     else editor.set(files.system) // Highlight dir
+
+    file = await manager.open('freerange/test.txt')
+    const value = await file.body
+    console.log('Value', value)
+    texteditor.value = value
 }
 
 
@@ -107,5 +124,5 @@ remoteMount.onClick = () => {
     ).then(onMount)
 }
 
-// ------------- Try Mounting from the Cache -------------
-manager.mountCache(globalProgressCallback).then(onMount)
+// // ------------- Try Mounting from the Cache -------------
+// manager.mountCache(globalProgressCallback).then(onMount)

@@ -2,13 +2,13 @@ import * as text from './defaults/text.js'
 import * as gzip from './defaults/gzip.js'
 import * as json from './defaults/json.js'
 import * as datauri from './defaults/datauri.js'
-import * as native from './native/index.js'
 import request from './request.js'
 
 import { get, set } from 'idb-keyval';
 
 import { getInfo } from './index.js'
 import RangeFile from './RangeFile.js'
+import { objToString } from './utils/parse.utils.js'
 
 export default class FileManager {
     constructor(options = {}) {
@@ -93,7 +93,7 @@ export default class FileManager {
     }
 
     // --------------- Place Files into the System --------------- 
-    loadFile = async (file, options) => {
+    load = async (file, options) => {
 
         let path = options.path
         const files = options.files ?? this.files
@@ -109,7 +109,7 @@ export default class FileManager {
 
                 let addToLog;
                 if (!(file instanceof FileSystemFileHandle)) {
-                    fileOptions.parent = await this.getDirectory(path)
+                    fileOptions.parent = await this.open(path, 'directory', false) // Don't create file
                     addToLog = true
                 }
 
@@ -200,7 +200,7 @@ export default class FileManager {
             for (let key in target) {
                 const newBase = (base) ? base + '/' + key : key
                 const file = target[key]
-                if (file instanceof RangeFile) await this.loadFile(file, { path: newBase, files })
+                if (file instanceof RangeFile) await this.load(file, { path: newBase, files })
                 else await drill(file, newBase)
             }
         }
@@ -242,7 +242,7 @@ export default class FileManager {
                                             mode: 'cors' // Always enable CORS
                                         }
                                     }
-                                    this.loadFile(file)
+                                    this.load(file)
                                 }
                                 else drill(target)
                             }
@@ -257,7 +257,7 @@ export default class FileManager {
         }
 
         // -------- File (default) --------
-        else await this.loadFile(fileSystemInfo)
+        else await this.load(fileSystemInfo)
 
         return this.files
     }
@@ -285,7 +285,7 @@ export default class FileManager {
         const files = []
         if (handle.kind === 'file') {
             if (progressCallback instanceof Function) files.push({ handle, base }) // Add file details to an iterable
-            else await this.loadFile(handle, { path: base }) // Load file immediately
+            else await this.load(handle, { path: base }) // Load file immediately
         } else if (handle.kind === 'directory') {
 
             const toLoad = this.toLoad(handle.name)
@@ -303,7 +303,7 @@ export default class FileManager {
         if (!base) {
             let count = 0
             await this.iterAsync(files, async (o) => {
-                await this.loadFile(o.handle, { path: o.base })
+                await this.load(o.handle, { path: o.base })
                 count++
                 progressCallback(this.directoryName, count / files.length, files.length)
             })
@@ -325,10 +325,11 @@ export default class FileManager {
     save = (progressCallback) => {
         return new Promise(async (resolve, reject) => {
             let i = 0
+
             await this.iterAsync(this.files.list, async (rangeFile, j) => {
-                await rangeFile.save().catch(reject)
+                await rangeFile.save()
                 i++
-                progressCallback(this.directoryName, i / this.files.list.length, this.files.list.length)
+                if (progressCallback instanceof Function) progressCallback(this.directoryName, i / this.files.list.length, this.files.list.length)
             })
             this.changelog = [] // Reset changelog
             resolve()
@@ -349,12 +350,6 @@ export default class FileManager {
         }
     }
 
-    writeFile = async (fileHandle, contents) => {
-        const writable = await fileHandle.createWritable();
-        await writable.write(contents); // Write contents to stream
-        await writable.close();
-    }
-
     delete = async (name, parent) => {
         return await parent.removeEntry(name, { recursive: true });
         // OR await directoryHandle.remove();
@@ -372,32 +367,117 @@ export default class FileManager {
         return await parent.resolve(file);
     }
 
-    // In an existing directory, create a new directory named "My Documents".
-    createDirectory = async (name, parent) => {
-        const newDirectoryHandle = await parent.getDirectoryHandle(name, {
-            create: true,
-        });
-        return newDirectoryHandle
-    }
+    open = async (path, type, create=true) => {
 
-    // Get System Directory
-    getDirectory = async (path) => {
-        let parent = this.filesystem
+        let system = this.files.system
+        let directoryHandle = this.filesystem
+        const pathTokens = path.split('/')
+        let dirTokens = pathTokens.slice(0, -1)
+        const filename = pathTokens.slice(-1)[0]
+        if (type === 'directory') dirTokens = [...dirTokens, filename]
 
-        let split = path.split('/')
-        split.pop() // Remove actual file 
+        if (dirTokens.length > 0) {
+            for (const token of dirTokens) {
 
-        for (let i = 0; i < split.length; i++) {
-            let foundEntry;
-            const str = split[i]
+                // Grab Filesystem Handle
+                directoryHandle = await directoryHandle.getDirectoryHandle(token, { create: true })
 
-            await this.iterAsync(parent.values(), (entry) => {
-                if (entry.name === str) foundEntry = entry
-            })
-
-            if (foundEntry?.kind === 'directory') parent = foundEntry
+                // Grab Internal System Location
+                if (!system[token]) system[token] = {}
+                system = system[token]
+            }
         }
 
-        return parent
+        if (type === 'directory') return directoryHandle
+        else {
+
+            const existingFile = system[filename]
+            if (existingFile) return existingFile
+            else {
+                const fileHandle = directoryHandle.getFileHandle(filename, { create })
+                return await this.load(fileHandle)
+            }
+        }
+    }
+
+
+    getPath = (path, root='') => {
+        const dirTokens = root.split('/')
+        dirTokens.pop() // remove file name
+
+        const extensionTokens = path.split('/').filter(str => {
+            if (str === '..') {
+                if (dirTokens.length == 0) console.error('Derived path is going out of the valid filesystem!')
+                dirTokens.pop() // Pop off directories
+                return false
+            } else if (str === '.') return false
+            else return true
+        })
+
+        const newPath = extensionTokens.join('/')
+        return newPath
+    }
+
+    // Direct Import of ES6 Modules
+    ['#import'] = async (text) => {
+        const moduleDataURI = "data:text/javascript;base64," + btoa(text);
+        let imported = await import(moduleDataURI)
+        if (imported.default && Object.keys(imported).length === 1) imported = imported.default
+        return imported
+    }
+
+
+    // Import ES6 Modules (and replace their imports with actual file imports!)
+    import = async (file) => {
+
+        let text = await file.body
+
+        try {
+            return await this['#import'](text)
+        } 
+        
+        // Catch Nested Imports
+        catch (e) {
+            
+            console.warn(`${this.name} contains ES6 imports. Manually importing these modules...`)
+
+            // Use a Regular Expression to Splice Out the Import Details
+            const importInfo = {}
+            var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
+            let m;
+            do {
+                m = re.exec(text)
+                if (m == null) m = re.exec(text); // be extra sure (weird bug)
+                if (m) {
+                    text = text.replace(m[0], ``) // Replace found text
+                    // let id = String(Math.floor(Math.random() * 1000000))
+                    const variables = m[1].trim().split(',')
+                    importInfo[m[3]] = variables // Save variables to path
+                    // variables.forEach(str => text = text.replaceAll(`${str}`, `${id}`)) // Assign random ID to the imported variables
+                }
+            } while (m);
+
+            // Import Files
+            for (let path in importInfo){
+                const variables = importInfo[path]                
+                const correctPath = this.getPath(path, file.path)
+
+                const importFile = await this.open(correctPath)
+
+                // Get That File and Import It
+                const imported = await this.import(importFile)
+                if (variables.length > 1){
+                    variables.forEach(str => {
+                        text = `const ${str} = ${objToString(imported[str], false).toString()}\n${text}`
+                    })
+                } else {
+                    text = `const ${variables[0]} = ${objToString(imported, false).toString()}\n${text}`
+                }
+            }
+
+            const tryImport = await this['#import'](text)
+            
+            return tryImport
+        }
     }
 }
