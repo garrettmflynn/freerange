@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,30 +8,29 @@
     <title>Brains@Play Editor</title>
     <link rel=stylesheet href="./style.css">
 </head>
+
 <body>
-    <visualscript-app id="app" name="Global EEG Norms">
-		<visualscript-nav>
-			<span id=name>Brains@Play Editor</span><br>
-		</visualscript-nav>
-		<visualscript-dashboard>
-		<visualscript-sidebar>
-			<visualscript-sidebar-header>Controls</visualscript-sidebar-header>
-			<visualscript-control id=select type="button" label="Select Project">View</visualscript-control>
-			<visualscript-control id=save type="button" label="Save Changes">Save</visualscript-control>
-		</visualscript-sidebar>
-	  
-		<visualscript-main>
-			<visualscript-overlay>
-				<div id="inneroverlay">
-					<visualscript-loader type="linear"></visualscript-loader>
-				</div>
-			</visualscript-overlay>
-		</visualscript-main>
-		</visualscript-dashboard>
-	  </visualscript-app>
-	
-	
-	  <!-- <visualscript-dashboard toggletext="Advanced Mode">
+    <!-- <visualscript-app id="app" name="Brains@Play Editor"> -->
+    <visualscript-app id="app" name="Brains@Play Editor">
+        <visualscript-main>
+            <visualscript-button id=select primary>Select Project</visualscript-control>
+        </visualscript-main>
+    </visualscript-app>
+
+    <visualscript-dashboard>
+        <visualscript-nav>
+            <span id=name>Brains@Play Editor</span><br>
+        </visualscript-nav>
+        <visualscript-sidebar>
+            <visualscript-sidebar-header>Controls</visualscript-sidebar-header>
+            <visualscript-control id=save type="button" label="Save Changes">Save</visualscript-control>
+        </visualscript-sidebar>
+        <visualscript-main id="globalMain"></visualscript-main>
+    </visualscript-dashboard>
+    <!-- </visualscript-app> -->
+
+
+    <!-- <visualscript-dashboard toggletext="Advanced Mode">
 		<visualscript-nav>Advanced Editor</visualscript-nav>
 	  <visualscript-sidebar></visualscript-sidebar>
 	  <visualscript-main id="main">
@@ -45,4 +45,5 @@
 
 </body>
 <script src="dist/index.js"></script>
+
 </html>

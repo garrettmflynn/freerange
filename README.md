@@ -1,6 +1,16 @@
 # freerange
 File import and export utilities with free range-request support for remote files
 
+## How to Use
+```javascript
+import * as freerange from `https://cdn.jsdelivr.net/npm/freerange`
+const manager = new freerange.FileManager()
+await manager.mount()
+const file = manager.open('test.txt')
+file.body = 'Hello world'
+await manager.save()
+```
+
 
 ## Classes
 ### FileManager

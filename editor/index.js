@@ -3,7 +3,9 @@ import * as files from '../freerange-core/src/index.js'
 
 
 // -------------- Setup File Manager --------------
-let file, plugins;
+let file, app;
+
+let tabs = {}
 const manager = new files.FileManager({
     debug: true,
     ignore: ['DS_Store']
@@ -13,7 +15,10 @@ const manager = new files.FileManager({
 const select = document.querySelector('#select')
 const save = document.querySelector('#save')
 const displayName = document.querySelector('#name')
-const main = document.querySelector('visualscript-main')
+
+let globalMain = document.querySelector('#globalMain')
+let appElement = document.querySelector('visualscript-app')
+let appMainElement = appElement.querySelector('visualscript-main')
 
 save.onclick = manager.save
 select.onclick = () => manager.mount().then(onMount)
@@ -24,6 +29,8 @@ document.onkeydown = async (e) => {
     if (e.metaKey && e.code == 'KeyS') {
         e.preventDefault()
         manager.save()
+        app.active = false // stop other loops
+        compile(file)
     }
 };
 
@@ -31,31 +38,42 @@ document.onkeydown = async (e) => {
 const onMount = async (info) => {
     console.log('File System', info, manager)
     file = await manager.open('index.js')
-    initializeApp(file)
+    compile(file)
 }
 
 // -------------- Handle Brains@Play Application --------------
-const initializeApp = async (file) => {
+const compile = async (file) => {
 
-    const app = await manager.import(file)
+    if (app) console.warn('Recompiling the application...')
+    app = await manager.import(file)
+
     displayName.innerHTML = `${app.name}`
+    appMainElement.innerHTML = `${app.name}`
 
     // Display Plugins
-    const tabs = []
+    const tabMap = new Map()
 
+    let createdTabs = 0
     await Promise.all(manager.files.list.map(async f => {
-        const tab = document.createElement('visualscript-tab')
-        tab.label = app.name
-        const texteditor = document.createElement('textarea')
-        tab.appendChild(texteditor)
-        texteditor.value = await f.body
-        texteditor.oninput = (ev) => f.body = ev.target.value
-        tabs.push(tab)
-        main.appendChild(tab)
+        const tab = tabs[f.path]
+        if (tab) return
+        else {
+            const tab = document.createElement('visualscript-tab')
+            tab.name = f.path
+            const texteditor = document.createElement('textarea')
+            tab.appendChild(texteditor)
+            texteditor.value = await f.body
+            texteditor.oninput = (ev) => f.body = ev.target.value
+            tabMap.set(f.path, tab)
+            globalMain.appendChild(tab)
+            tabs[f.path] = tab
+            createdTabs++
+        }
     }))
 
-    main.tabs = tabs
+    if (createdTabs) globalMain.tabs = tabMap
 
+    app.active = true
     // Start App
     start(app)
 }
@@ -80,7 +98,7 @@ const start = async (app) => {
                     let animate = () => {
                         const output = node.function()
                         onActivated(app.graph[name]?.targets, output)
-                        setTimeout(animate, 1000 / node.rate)
+                        if (app.active) setTimeout(animate, 1000 / node.rate)
                     }
                     animate()
                 })
