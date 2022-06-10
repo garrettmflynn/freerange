@@ -479,16 +479,16 @@ export default class FileManager {
                 const variables = importInfo[path]                
                 const correctPath = this.getPath(path, file.path)
 
-                const importFile = await this.open(correctPath)
+                const importFile = await this.open(correctPath, 'file', false)
 
                 // Get That File and Import It
                 const imported = await this.import(importFile)
                 if (variables.length > 1){
                     variables.forEach(str => {
-                        text = `const ${str} = ${objToString(imported[str], false).toString()}\n${text}`
+                        text = `const ${str} = ${objToString(imported[str], false)}\n${text}`
                     })
                 } else {
-                    text = `const ${variables[0]} = ${objToString(imported, false).toString()}\n${text}`
+                    text = `const ${variables[0]} = ${objToString(imported, false)}\n${text}`
                 }
             }
 

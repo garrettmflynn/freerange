@@ -13,7 +13,7 @@
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "start": "tinybuild",
-    "build": "tinybuild build"
+    "build": "tinybuild bundle"
   },
   "devDependencies": {
     "tinybuild": "^0.3.141"
