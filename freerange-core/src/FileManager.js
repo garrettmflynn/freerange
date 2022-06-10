@@ -456,7 +456,7 @@ export default class FileManager {
         // Catch Nested Imports
         catch (e) {
             
-            console.warn(`${this.name} contains ES6 imports. Manually importing these modules...`)
+            console.warn(`${file.name} contains ES6 imports. Manually importing these modules...`)
 
             // Use a Regular Expression to Splice Out the Import Details
             const importInfo = {}
