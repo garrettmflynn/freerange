@@ -44,7 +44,6 @@ export default class FileHandler {
         // Swap file mimeType if zipped
         let mimeType = file.type
 
-        console.log(mimeType, this.registry)
         const zipped = (mimeType === this.registry['gz'] || extension.includes('gz'))
         if (zipped) extension.pop() // Pop off .gz
         if (zipped || !mimeType) mimeType = this.registry[extension[0]]
@@ -55,7 +54,6 @@ export default class FileHandler {
 
         const { mimeType, zipped } = this.getInfo(fileInfo)
 
-        console.log(o, fileInfo, mimeType, zipped)
         if (zipped) o = await gzip.decode(o, mimeType)
         if (mimeType && (mimeType.includes('image/') || mimeType.includes('video/'))) return o.dataurl
 

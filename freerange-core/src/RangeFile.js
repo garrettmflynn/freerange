@@ -1,4 +1,3 @@
-import getInfo from './getInfo.js'
 
 import { isClass } from './utils/classes.js'
 import request from './request.js'
@@ -60,7 +59,7 @@ export default class RangeFile {
         // Get File Information
         this.name = file.name
         this.type = file.type
-        const { mimeType, zipped, extension } = getInfo(file)
+        const { mimeType, zipped, extension } = this.manager.getInfo(file)
         this.mimeType = mimeType
         this.zipped = zipped
         this.extension = extension

@@ -3,7 +3,7 @@ import request from './request.js'
 import { get, set } from 'idb-keyval';
 import RangeFile from './RangeFile.js'
 import { objToString } from './utils/parse.utils.js'
-import FileHandler from '../../common/FileHandler';
+import FileHandler from './common/FileHandler';
 
 export default class FileManager extends FileHandler {
     constructor(options = {}) {
@@ -36,7 +36,7 @@ export default class FileManager extends FileHandler {
 
     // --------------- Place Files into the System --------------- 
     toLoad = (name) => {
-        return this.ignore.reduce((a, b) => a * !name.includes(b), true)
+        return this.ignore.reduce((a, b) => a * !name?.includes(b), true)
     }
 
     load = async (file, options={}) => {
@@ -176,7 +176,7 @@ export default class FileManager extends FileHandler {
             for (let key in target) {
                 const newBase = (base) ? base + '/' + key : key
                 const file = target[key]
-                if (file instanceof RangeFile) await this.load(file, { path: newBase, files })
+                if (file instanceof RangeFile) await this.load(...this.createFileInfo(file, newBase, files))
                 else await drill(file, newBase)
             }
         }
@@ -242,11 +242,17 @@ export default class FileManager extends FileHandler {
         }
 
         // -------- File (default) --------
-        else await this.load(fileSystemInfo)
+        else await this.load(this.createFileInfo(fileSystemInfo))
 
         return this.files
     }
 
+    createFileInfo = (file={}, path, files, type) => {
+        if (type === 'remote') return this.createRemoteFileInfo(file, path)
+        else {
+            return [file, { path, files }]
+        }
+    }
     createRemoteFileInfo = (file={}, path) => {
 
         file = Object.assign(file, {
@@ -287,7 +293,7 @@ export default class FileManager extends FileHandler {
         const files = []
         if (handle.kind === 'file') {
             if (progressCallback instanceof Function) files.push({ handle, base }) // Add file details to an iterable
-            else await this.load(handle, { path: base }) // Load file immediately
+            else await this.load(...this.createFileInfo(handle, base)) // Load file immediately
         } else if (handle.kind === 'directory') {
 
             const toLoad = this.toLoad(handle.name)
@@ -305,7 +311,7 @@ export default class FileManager extends FileHandler {
         if (!base) {
             let count = 0
             await this.iterAsync(files, async (o) => {
-                await this.load(o.handle, { path: o.base })
+                await this.load(...this.createFileInfo(o.handle, o.base))
                 count++
                 progressCallback(this.directoryName, count / files.length, files.length)
             })
@@ -365,9 +371,9 @@ export default class FileManager extends FileHandler {
         return await file.move(directory, name)
     }
 
-    getPath = async (file, parent) => {
-        return await parent.resolve(file);
-    }
+    // getPath = async (file, parent) => {
+    //     return await parent.resolve(file);
+    // }
 
     open = async (path, type, create=true) => {
 
@@ -402,14 +408,14 @@ export default class FileManager extends FileHandler {
             if (existingFile) return existingFile
             else {
                 const fileHandle = directoryHandle.getFileHandle(filename, { create })
-                return await this.load(fileHandle)
+                return await this.load(...this.createFileSystemInfo(fileHandle))
             }
         }
     }
 
 
-    getPath = (path, root='') => {
-        const dirTokens = root.split('/')
+    getPath = (path, ref='') => {
+        const dirTokens = ref.split('/')
         dirTokens.pop() // remove file name
 
         const extensionTokens = path.split('/').filter(str => {
@@ -421,7 +427,8 @@ export default class FileManager extends FileHandler {
             else return true
         })
 
-        const newPath = extensionTokens.join('/')
+
+        const newPath = [...dirTokens, ...extensionTokens].join('/')
         return newPath
     }
 
@@ -438,7 +445,6 @@ export default class FileManager extends FileHandler {
     import = async (file) => {
 
         let text = await file.body
-        console.log('Import text', text)
 
         try {
             return await this['#import'](text)
@@ -467,19 +473,29 @@ export default class FileManager extends FileHandler {
 
             // Import Files
             for (let path in importInfo){
-                const variables = importInfo[path]                
-                const correctPath = this.getPath(path, file.path)
+                const variables = importInfo[path]     
 
-                const importFile = await this.open(correctPath, 'file', false)
+                let basePath = (file.method === 'remote') ? `${file.directory}/${file.path}` : file.path // Reconstruct full path for the base
+                const correctPath = this.getPath(path, basePath) 
+
+                const name = path.split('/').slice(-1)[0]
+
+                 // Mirror original type | TODO: Support remote URLS as imports for any mode...
+                const importFile = await this.load(...this.createFileInfo({name}, correctPath, undefined, file.method))
 
                 // Get That File and Import It
-                const imported = await this.import(importFile)
-                if (variables.length > 1){
-                    variables.forEach(str => {
-                        text = `const ${str} = ${objToString(imported[str], false)}\n${text}`
-                    })
+                if (importFile){
+                    const imported = await this.import(importFile)
+                    if (variables.length > 1){
+                        variables.forEach(str => {
+                            text = `const ${str} = ${objToString(imported[str], false)}\n${text}`
+                        })
+                    } else {
+                        text = `const ${variables[0]} = ${objToString(imported, false)}\n${text}`
+                    }
                 } else {
-                    text = `const ${variables[0]} = ${objToString(imported, false)}\n${text}`
+                    console.error(`${correctPath} not found. Aborting import...`)
+                    return;
                 }
             }
 

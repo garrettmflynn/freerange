@@ -10,14 +10,6 @@ const manager = new files.FileManager({
 })
 manager.extend(edf)
 
-manager.mount('https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js').then(async files => {
-    console.log(files)
-    await Promise.all(files.list.map(async(file) => {
-        const imported = await manager.import(file)
-        console.log('imported', imported)
-    }))
-})
-
 // ------------- Get Elements -------------
 const localMount = document.querySelector('#local')
 const remoteMount = document.querySelector('#remote')

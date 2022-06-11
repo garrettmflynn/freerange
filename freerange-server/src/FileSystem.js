@@ -3,7 +3,7 @@ import { promisify } from "util";
 import mime from "mime-types";
 
 import { pipeline, Readable } from "stream";
-import FileHandler from '../../common/FileHandler.js';
+import FileHandler from '../../freerange-core/src/common/FileHandler.js';
 const fileInfo = promisify(stat);
 
 export default class FileSystem extends FileHandler{

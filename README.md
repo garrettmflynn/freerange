@@ -51,3 +51,4 @@ document.querySelector('button').onclick = async () => {
 
 ## Known Issue
 1. Postprocessing a large number of bytes (e.g. for EDF files) results in long wait times.
+2. ES6 imports using a remote URL will not work for local files
