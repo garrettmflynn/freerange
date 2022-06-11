@@ -16,6 +16,8 @@ export default class FileHandler {
         this.extend(text)
         this.extend(tsv)
         this.extend(csv)
+        this.extend(gzip)
+
     }
 
 
@@ -41,6 +43,8 @@ export default class FileHandler {
         let [name, ...extension] = (file.name ?? '').split('.') // Allow no name
         // Swap file mimeType if zipped
         let mimeType = file.type
+
+        console.log(mimeType, this.registry)
         const zipped = (mimeType === this.registry['gz'] || extension.includes('gz'))
         if (zipped) extension.pop() // Pop off .gz
         if (zipped || !mimeType) mimeType = this.registry[extension[0]]
@@ -51,6 +55,7 @@ export default class FileHandler {
 
         const { mimeType, zipped } = this.getInfo(fileInfo)
 
+        console.log(o, fileInfo, mimeType, zipped)
         if (zipped) o = await gzip.decode(o, mimeType)
         if (mimeType && (mimeType.includes('image/') || mimeType.includes('video/'))) return o.dataurl
 

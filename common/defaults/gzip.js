@@ -1,3 +1,4 @@
+import pako from 'pako'
 export const decode = (o) => {
     return new Promise((resolve, reject) => {
         try {

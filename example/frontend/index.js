@@ -10,8 +10,12 @@ const manager = new files.FileManager({
 })
 manager.extend(edf)
 
-manager.mount('https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js').then(remote => {
-    console.log(remote)
+manager.mount('https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js').then(async files => {
+    console.log(files)
+    await Promise.all(files.list.map(async(file) => {
+        const imported = await manager.import(file)
+        console.log('imported', imported)
+    }))
 })
 
 // ------------- Get Elements -------------
@@ -29,13 +33,17 @@ document.onkeydown = async (e) => {
     }
 };
 
-texteditor.oninput = (ev) => {
-    if (file) file.body = ev.target.value
-}
-
 const maxArrLen = 50
 editor.preprocess = async (val) => {
     let resolved
+    
+    for (let key in val){
+        if (val[key] instanceof files.RangeFile && !val[key].rangeSupported) {
+            console.log(key, val[key])
+            val[key] = await val[key].body
+        }
+    }
+
 
     if (val instanceof files.RangeFile) resolved = val.body  // get body
     else resolved = await val 

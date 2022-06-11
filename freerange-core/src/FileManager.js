@@ -13,21 +13,13 @@ export default class FileManager extends FileHandler {
         this.directoryCacheName = 'freerangeCache'
         this.directoryName = ''
         this.groupConditions = new Set()
-
-        // Default Groups
-        this.addDefaultGroups()
+        this.groups = {}
 
         // Initialize File System
         this.reset()
-    }
 
-    createFileSystemInfo = () => {
-        return {
-            system: {},
-            types: {},
-            list: [],
-            n: 0
-        }
+        // Default Groups
+        this.addDefaultGroups()
     }
 
     reset = () => {
@@ -50,6 +42,7 @@ export default class FileManager extends FileHandler {
     load = async (file, options={}) => {
 
         let path = options.path
+        let type = options.type
         const files = options.files ?? this.files
 
         const toLoad = this.toLoad(file.name ?? file.path)
@@ -65,8 +58,15 @@ export default class FileManager extends FileHandler {
 
                     let addToLog;
 
-                    // Local Files Only
-                    if (!('origin' in file)) {
+                    // Remote Files
+                    if (type === 'remote') {
+                        const directoryPath = (new URL(fileOptions.directory)).pathname.split('/')
+                        const url = new URL(fileOptions.path)
+                        path = file.path = fileOptions.path = url.pathname.split('/').filter((str, i) => directoryPath?.[i] != str).join('/')
+                    } 
+                    
+                    // Local Files
+                    else {
                         if (!(file instanceof FileSystemFileHandle)) {
                             const pathWithoutName = path.split('/').slice(0, -1).join('/')
                             fileOptions.parent = await this.open(pathWithoutName, 'directory', false) // Don't create file
@@ -78,23 +78,38 @@ export default class FileManager extends FileHandler {
                     if (addToLog) this.changelog.push(file) // Add file to changelog
             }
 
-            this.groupConditions.forEach(func => func(file, files))
+            this.groupConditions.forEach(func => func(file, path, files))
             return file
         } else console.warn(`Ignoring ${file.name}`)
     }
 
-    addGroup = (condition) => {
+    createFileSystemInfo = () => {
+        const files = {}
+        for (let group in this.groups) {
+            const groupInfo = this.groups[group]
+            files[group] = JSON.parse(JSON.stringify(groupInfo.initial)) // Deep clone
+        }
+
+        return files
+    }
+
+    addGroup = (name, initial, condition) => {
+        this.files[name] = initial
+        this.groups[name] = {
+            initial,
+            condition
+        }
         this.groupConditions.add(condition)
     }
 
     addDefaultGroups = () => {
 
         // file system
-        this.addGroup((file, files) => {
+        this.addGroup('system', {}, (file, path, files) => {
             let target = files.system
-            let split = file.path.split('/')
+            let split = path.split('/')
             split = split.slice(0, split.length - 1)
-            if (file.path) split.forEach((k, i) => {
+            if (path) split.forEach((k, i) => {
                 if (!target[k]) target[k] = {}
                 target = target[k]
             })
@@ -102,7 +117,7 @@ export default class FileManager extends FileHandler {
         })
 
         // file type
-        this.addGroup((file, files) => {
+        this.addGroup('types', {}, (file, _, files) => {
             const extension = file.extension ?? file.name
             if (extension) {
                 if (!files.types[extension]) files.types[extension] = []
@@ -111,12 +126,12 @@ export default class FileManager extends FileHandler {
         })
 
         // keep track of file count
-        this.addGroup((_, files) => {
+        this.addGroup('n', 0, (_, __, files) => {
             files.n++
         })
 
         // keep a list of files
-        this.addGroup((file, files) => {
+        this.addGroup('list', [], (file, _, files) => {
             files.list.push(file)
         })
     }
@@ -150,13 +165,13 @@ export default class FileManager extends FileHandler {
     }
 
     getSubsystem = async (path) => {
-
         const files = this.createFileSystemInfo()
         const split = path.split('/')
         const subDir = split.shift()
         path = split.join('/') // Path without directory name
         let target = this.files.system[subDir]
         split.forEach(str => target = target[str])
+
         let drill = async (target, base) => {
             for (let key in target) {
                 const newBase = (base) ? base + '/' + key : key
@@ -185,12 +200,13 @@ export default class FileManager extends FileHandler {
         // -------- Remote Filesystem --------
         else if (typeof fileSystemInfo === 'string') {
 
-            this.directoryName = fileSystemInfo
             await this.request(fileSystemInfo, { mode: 'cors' }, progressCallback)
-                .then(o => {
+                .then(async o => {
 
+                    const type = o.type.split(';')[0] // Get mimeType (not fully specified)
                     // Expose Files from the freerange FileSystem...
-                    if (o.type === 'application/json') {
+                    if (type === 'application/json') {
+                        this.directoryName = fileSystemInfo // Specify full file path
                         const datasets = JSON.parse(new TextDecoder().decode(o.buffer))
 
                         const drill = (o) => {
@@ -200,14 +216,8 @@ export default class FileManager extends FileHandler {
                                 const toLoad = this.toLoad(key)
                                 if (toLoad) {
                                     if (typeof target === 'string') {
-                                        const file = {
-                                            origin: this.directoryName,
-                                            path: target,
-                                            options: {
-                                                mode: 'cors' // Always enable CORS
-                                            }
-                                        }
-                                        this.load(file)
+                                        const arr = this.createRemoteFileInfo(undefined, `${fileSystemInfo}/${target}`)
+                                        this.load(...arr)
                                     }
                                     else drill(target)
                                 }
@@ -217,10 +227,13 @@ export default class FileManager extends FileHandler {
                         drill(datasets)
                     } 
                     
-                    // Import JS Files Accessed Remotely (from anywhere...)
+                    // Load a Single Remote File
                     else {
-                        let fileText = new TextDecoder().decode(o.buffer)
-                        console.log(fileText)
+                        this.directoryName = new URL(fileSystemInfo).origin // Specify origin only
+                        const blob = new Blob([o.buffer], {type})
+                        blob.name = fileSystemInfo.split('/').slice(-1)[0]
+                        const arr = this.createRemoteFileInfo(blob, fileSystemInfo)
+                        await this.load(...arr)
                     }
 
                 }).catch(e => {
@@ -232,6 +245,23 @@ export default class FileManager extends FileHandler {
         else await this.load(fileSystemInfo)
 
         return this.files
+    }
+
+    createRemoteFileInfo = (file={}, path) => {
+
+        file = Object.assign(file, {
+            origin: this.directoryName,
+            path,
+            options: {
+                mode: 'cors' // Always enable CORS
+            }
+        })
+
+        let options = {
+            type: 'remote',
+        }
+
+       return [file, options]
     }
 
 
@@ -408,6 +438,7 @@ export default class FileManager extends FileHandler {
     import = async (file) => {
 
         let text = await file.body
+        console.log('Import text', text)
 
         try {
             return await this['#import'](text)

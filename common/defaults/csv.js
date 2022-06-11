@@ -25,11 +25,15 @@ export const decode = (o, separator=',') => {
     // Convert to JSON String
     rows.forEach((arr, i) => {
         let strObject = `{`
-        arr.forEach((val, j) => strObject += `"${headers[j]}":${val}`) 
+        strObject += arr.map(
+            (val, j) => `"${headers[j]}":${(typeof val === 'string') 
+            ? `"${val}"` // Maintain strings
+            : val}` // Otherwise provide object
+        ).join(',') 
         strObject+= '}'
         collection.push(strObject)
     })
 
     // Parse JSON Values
-    return collection.map(str => JSON.parse(str))
+    return collection.map(JSON.parse)
 }

@@ -12,7 +12,7 @@ export default class RangeFile {
         if (file instanceof FileSystemFileHandle) this.fileSystemHandle = file
         if (options.parent) this.parent =  options.parent // Parent in the filesystem
 
-        this.file = file // Might just be a spoof objecct
+        this.file = file // Might just be a spoof object
 
         this.debug = options.debug
         this.manager = options.manager
@@ -35,6 +35,7 @@ export default class RangeFile {
         this.loadFileInfo(this.file)
 
         this.storage = {}
+        this.rangeSupported = false
         this[`#original`] = undefined
     }
 
@@ -68,6 +69,9 @@ export default class RangeFile {
 
     init = async () => {
 
+        this.config = this.manager.extensions?.[this.mimeType]?.config
+        this.rangeSupported = !!this.config 
+
         // Get File from Handle
         if (this.fileSystemHandle === this.file) {
             this.file = await this.fileSystemHandle.getFile()
@@ -75,9 +79,8 @@ export default class RangeFile {
         }
 
         // Only Load Buffer for Local Mode
+        let converted = false
         if (this.method === 'local') {
-
-            let converted = false
             // Convert File Spoofs to a Blob
             if (!(this.file instanceof Blob)) { // Catches files and blobs
                 this.set(this.file.data) // Load the file data
@@ -89,25 +92,24 @@ export default class RangeFile {
 
             // Always Convert File to Blob Spoof
             if (!converted) {
-                if (this.storage)  this.file = await this.createFile(this.storage.buffer)
+                if (Object.keys(this.storage).length === 0) this.file = await this.createFile(this.storage.buffer)
                 else console.warn(`No buffer created for ${this.name}...`)
             }
         }
 
 
-        this.config = this.manager.extensions?.[this.mimeType]?.config
         await this.setupByteGetters()
 
     }
 
     setOriginal = () => {
         const tic = performance.now()
-        if (isClass(this['#body'])) {
-            this[`#original`] = null; //this[`#body`]
-            console.warn('Will not deep clone file bodies that are class instances')
-        } else if (this.config){
+        if (this.rangeSupported){
             this[`#original`] = null //this[`#body`]
             console.warn('Will not stringify bodies that support range requests.')
+        } else if (isClass(this['#body'])) {
+            this[`#original`] = null; //this[`#body`]
+            console.warn('Will not deep clone file bodies that are class instances')
         } else {
             try {
                 this[`#original`] = JSON.parse(JSON.stringify(this[`#body`]))
@@ -128,6 +130,9 @@ export default class RangeFile {
             // Decode Buffer into Cache
             if (!this[`#body`]) {
                 const ticDecode = performance.now()
+                const storageExists = Object.keys(this.storage).length > 0
+
+                if (!storageExists && !this.rangeSupported) this.storage = await this.getFileData() // Get Remote File Data (if range requests are not supported...)
                 this[`#body`] = await this.manager.decode(this.storage, this.file).catch(this.onError) // TODO: Remove strict dependency...
                 const tocDecode = performance.now()
                 if (this.debug) console.warn(`Time to Decode (${this.name}): ${tocDecode - ticDecode}ms`)
@@ -149,7 +154,10 @@ export default class RangeFile {
 
     sync = async (createInSystem) => {
 
-        if (!this.config){
+        if (this.rangeSupported) {
+            console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)
+            return true
+        } else {
 
             const bodyString = JSON.stringify(this[`#body`])
             const ogString = JSON.stringify(this[`#original`])
@@ -178,9 +186,6 @@ export default class RangeFile {
                     return this.file
 
             } else return true
-        } else {
-            console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)
-            return true
         }
     }
 
@@ -212,10 +217,10 @@ export default class RangeFile {
 
             // Asynchronous
             let bytes = []
-            if (this.method === 'remote') bytes = await this.getRemote({ key, start, length }).catch(console.error)
-
+            if (this.method === 'remote') {
+                bytes = await this.getRemote({ key, start, length }).catch(console.error)
             // Synchronous
-            else {
+            } else {
 
                 let tempBytes = []
                 if (!Array.isArray(start)) start = [start]
@@ -239,7 +244,7 @@ export default class RangeFile {
             let output = (property.ignoreGlobalPostprocess) ? bytes : this.config.preprocess(bytes)
             if (property.postprocess instanceof Function) output = await property.postprocess(output, this['#body'], i)
             const toc = performance.now()
-            if (this.debug) console.warn(`Time to postprocess bytes (${this.name}): ${toc-tic}ms`)
+            if (this.debug) console.warn(`Time to postprocess bytes (${this.name}, ${key}, ${start}-${start+length}): ${toc-tic}ms`)
             return output
 
         } else {
@@ -313,7 +318,7 @@ export default class RangeFile {
         })
 
         // Hijack Body to Provide Gettable Properties
-        if (this.config) {
+        if (this.rangeSupported) {
             this[`#body`] = {}
             for (let key in this.config.properties) await this.defineProperty(key, this.config.properties[key], this['#body'])
             if (this.config.metadata instanceof Function) await this.config.metadata(this['#body'], this.config)
@@ -325,7 +330,7 @@ export default class RangeFile {
     // -------------------- Remote Support --------------------
     request = request
 
-    getRemote = async (property) => {
+    getRemote = async (property={}) => {
 
         let { start, length } = property
         const options = Object.assign({}, this.options)
@@ -333,19 +338,25 @@ export default class RangeFile {
 
         if (start.length < 1) return new Int8Array() // Ignore empty start array
         else {
-            
-            let Range = `bytes=${start.map(val => `${(length) ? `${val}-${val + length - 1}` : val}`).join(', ')}`
-            
-            // Limited by the header size limit on the server (--max-http-header-size=16000 by default)!
-            const maxHeaderLength = 15000 // Slightly less to account for other headers
-            if (Range.length > maxHeaderLength) {
-                const splitRange = Range.slice(0, maxHeaderLength).split(', ')
-                console.warn(`Only sending ${splitRange.length - 1} from ${start.length} range requests to remain under the --max-http-header-size=${1600} limit`)
-                Range = splitRange.slice(0, splitRange.length - 1).join(', ')
+
+            // Define Range if Specified
+            const isDefined = start[0] != undefined
+            if (isDefined){
+                let Range = `bytes=${start.map(val => `${(length) ? `${val}-${val + length - 1}` : val}`).join(', ')}`
+                
+                // Limited by the header size limit on the server (--max-http-header-size=16000 by default)!
+                const maxHeaderLength = 15000 // Slightly less to account for other headers
+                if (Range.length > maxHeaderLength) {
+                    const splitRange = Range.slice(0, maxHeaderLength).split(', ')
+                    console.warn(`Only sending ${splitRange.length - 1} from ${start.length} range requests to remain under the --max-http-header-size=${1600} limit`)
+                    Range = splitRange.slice(0, splitRange.length - 1).join(', ')
+                }
+
+                            // Set Headers
+            options.headers = Object.assign({ Range }, options.headers)
+
             }
 
-            // Set Headers
-            options.headers = Object.assign({ Range }, options.headers)
             const o = await request(`${this.remote.origin}/${this.file.path}`, options)
             return o.buffer
         }
@@ -354,7 +365,18 @@ export default class RangeFile {
     getFileData = () => {
 
     // ----------------- Use Decoders -----------------
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
+
+
+            // Handle Remote Files
+            if (this.method === 'remote'){
+                const buffer = await this.getRemote()
+                this.file = await this.createFile(buffer) // Create a file object locally
+                resolve({file: this.file, buffer})
+            } 
+            
+            // Handle Local Files
+            else {
 
             const reader = new FileReader()
             const methods = {
@@ -379,6 +401,7 @@ export default class RangeFile {
             }
 
             reader[methods[method]](this.file)
+        }
     })
     }
 }
