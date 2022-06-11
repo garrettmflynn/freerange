@@ -1,7 +1,6 @@
 import config from '../config.js'
 import * as files from '../../freerange-core/src/index.js'
 import * as edf from '../../extensions/edf/index.js'
-import * as tsv from '../../extensions/tsv/index.js'
 
 // ------------- Get File Manager -------------
 let file;
@@ -10,7 +9,10 @@ const manager = new files.FileManager({
     ignore: ['DS_Store']
 })
 manager.extend(edf)
-manager.extend(tsv)
+
+manager.mount('https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js').then(remote => {
+    console.log(remote)
+})
 
 // ------------- Get Elements -------------
 const localMount = document.querySelector('#local')
@@ -78,9 +80,11 @@ const onMount = async (files) => {
     else editor.set(files.system) // Highlight dir
 
     file = await manager.open('freerange/test.txt')
-    const value = await file.body
-    console.log('Value', value)
-    texteditor.value = value
+    if (file){
+        const value = await file.body
+        console.log('Value', value)
+        texteditor.value = value
+    }
 }
 
 

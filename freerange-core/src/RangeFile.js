@@ -128,7 +128,7 @@ export default class RangeFile {
             // Decode Buffer into Cache
             if (!this[`#body`]) {
                 const ticDecode = performance.now()
-                this[`#body`] = await this.manager.decode(this.storage, this.file).catch(this.onError)
+                this[`#body`] = await this.manager.decode(this.storage, this.file).catch(this.onError) // TODO: Remove strict dependency...
                 const tocDecode = performance.now()
                 if (this.debug) console.warn(`Time to Decode (${this.name}): ${tocDecode - ticDecode}ms`)
             }
@@ -346,8 +346,8 @@ export default class RangeFile {
 
             // Set Headers
             options.headers = Object.assign({ Range }, options.headers)
-            const buffer = await request(`${this.remote.origin}/${this.file.path}`, options)
-            return buffer
+            const o = await request(`${this.remote.origin}/${this.file.path}`, options)
+            return o.buffer
         }
     }
 

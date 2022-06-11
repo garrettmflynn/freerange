@@ -21,7 +21,7 @@ export default async (url, options, progressCallback) => {
                     if (typeof type === 'string') config.type = type
                     const blob = new Blob(buffer, config)
                     const ab = await blob.arrayBuffer()
-                    resolve(new Int8Array(ab))
+                    resolve({buffer: new Int8Array(ab), type})
                     return;
                 }
 

@@ -1,13 +1,14 @@
-import { registry } from 'freerange'
 import { stat, createReadStream, readdirSync } from "fs";
 import { promisify } from "util";
 import mime from "mime-types";
 
 import { pipeline, Readable } from "stream";
+import FileHandler from '../../common/FileHandler.js';
 const fileInfo = promisify(stat);
 
-export default class FileSystem {
+export default class FileSystem extends FileHandler{
   constructor(options = {}) {
+    super(options)
     this.setRoot(options.root)
     this['404'] = options['404'] ?? ''
     this['#cache'] = {}
@@ -81,7 +82,7 @@ export default class FileSystem {
       if (contentType === filePath) {
         const split = filePath.split('.')
         const extension = split[split.length - 1]
-        contentType = registry[extension] // Approximation through our API
+        contentType = this.registry[extension] // Approximation through our API
       }
 
       const range = req.headers.range;

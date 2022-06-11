@@ -1,31 +1,18 @@
-import * as text from './defaults/text.js'
-import * as gzip from './defaults/gzip.js'
-import * as json from './defaults/json.js'
-import * as tsv from './defaults/tsv.js'
-import * as csv from './defaults/csv.js'
-import * as datauri from './defaults/datauri.js'
 import request from './request.js'
 
 import { get, set } from 'idb-keyval';
 import RangeFile from './RangeFile.js'
 import { objToString } from './utils/parse.utils.js'
+import FileHandler from '../../common/FileHandler';
 
-export default class FileManager {
+export default class FileManager extends FileHandler {
     constructor(options = {}) {
-        this.extensions = {}
-        this.registry = {}
-        this.native = {}
+        super(options)
+        this.native = null
         this.ignore = options.ignore ?? []
-        this.debug = options.debug
         this.directoryCacheName = 'freerangeCache'
         this.directoryName = ''
         this.groupConditions = new Set()
-
-        // Default Loaders
-        this.extend(json)
-        this.extend(text)
-        this.extend(tsv)
-        this.extend(csv)
 
         // Default Groups
         this.addDefaultGroups()
@@ -55,60 +42,12 @@ export default class FileManager {
         return rangeFile
     }
 
-    encode = async (o, fileInfo) => {
-        const { mimeType, zipped } = this.getInfo(fileInfo) // Spoof the original file
-
-        let buffer = ''
-        if (mimeType && (mimeType.includes('image/') || mimeType.includes('video/'))) content = datauri.encode(o)
-
-        const extension = Object.values(this.extensions).find(o => o.mimeType === mimeType)
-        if (extension && extension.encode instanceof Function) buffer = extension.encode(o)
-        else {
-            console.warn(`No encoder for ${mimeType}. Defaulting to text...`)
-            buffer = text.encode(o) // Encode as text by default
-        }
-
-        if (zipped) buffer = await gzip.encode(buffer)
-        return buffer
-    }
-
-    getInfo = (file) => {
-        let [name, ...extension] = (file.name ?? '').split('.') // Allow no name
-        // Swap file mimeType if zipped
-        let mimeType = file.type
-        const zipped = (mimeType === this.registry['gz'] || extension.includes('gz'))
-        if (zipped) extension.pop() // Pop off .gz
-        if (zipped || !mimeType) mimeType = this.registry[extension[0]]
-        return { mimeType, zipped, extension: extension.join('.') }
-    }
-
-    decode = async (o, fileInfo) => {
-
-        const { mimeType, zipped } = this.getInfo(fileInfo)
-
-        if (zipped) o = await gzip.decode(o, mimeType)
-        if (mimeType && (mimeType.includes('image/') || mimeType.includes('video/'))) return o.dataurl
-
-        const extension = Object.values(this.extensions).find(o => o.mimeType === mimeType)
-        if (extension && extension.decode instanceof Function) return extension.decode(o)
-        else {
-            console.warn(`No decoder for ${mimeType}. Defaulting to text...`)
-            return text.decode(o) // Decode as text by default
-        }
-    }
-
-    extend = (ext) => {
-        this.extensions[ext.mimeType] = ext
-        const guessExtension = ext.mimeType.split('-').splice(-1)[0]
-        this.registry[ext.extension ?? guessExtension] = ext.mimeType
-    }
-
+    // --------------- Place Files into the System --------------- 
     toLoad = (name) => {
         return this.ignore.reduce((a, b) => a * !name.includes(b), true)
     }
 
-    // --------------- Place Files into the System --------------- 
-    load = async (file, options) => {
+    load = async (file, options={}) => {
 
         let path = options.path
         const files = options.files ?? this.files
@@ -121,17 +60,22 @@ export default class FileManager {
             if (!path) path = file.webkitRelativePath ?? file.relativePath ?? file.path ?? ''
 
             const fileOptions = { path, directory: this.directoryName }
+
             if (!(file instanceof RangeFile)) {
 
-                let addToLog;
-                if (!(file instanceof FileSystemFileHandle)) {
-                    const pathWithoutName = path.split('/').slice(0, -1).join('/')
-                    fileOptions.parent = await this.open(pathWithoutName, 'directory', false) // Don't create file
-                    addToLog = true
-                }
+                    let addToLog;
 
-                file = await this.get(file, fileOptions)
-                if (addToLog) this.changelog.push(file) // Add file to changelog
+                    // Local Files Only
+                    if (!('origin' in file)) {
+                        if (!(file instanceof FileSystemFileHandle)) {
+                            const pathWithoutName = path.split('/').slice(0, -1).join('/')
+                            fileOptions.parent = await this.open(pathWithoutName, 'directory', false) // Don't create file
+                            addToLog = true
+                        }
+                    }
+
+                    file = await this.get(file, fileOptions)
+                    if (addToLog) this.changelog.push(file) // Add file to changelog
             }
 
             this.groupConditions.forEach(func => func(file, files))
@@ -243,30 +187,41 @@ export default class FileManager {
 
             this.directoryName = fileSystemInfo
             await this.request(fileSystemInfo, { mode: 'cors' }, progressCallback)
-                .then(ab => {
-                    let datasets = JSON.parse(new TextDecoder().decode(ab))
-                    const drill = (o) => {
-                        for (let key in o) {
-                            const target = o[key]
+                .then(o => {
 
-                            const toLoad = this.toLoad(key)
-                            if (toLoad) {
-                                if (typeof target === 'string') {
-                                    const file = {
-                                        origin: this.directoryName,
-                                        path: target,
-                                        options: {
-                                            mode: 'cors' // Always enable CORS
+                    // Expose Files from the freerange FileSystem...
+                    if (o.type === 'application/json') {
+                        const datasets = JSON.parse(new TextDecoder().decode(o.buffer))
+
+                        const drill = (o) => {
+                            for (let key in o) {
+                                const target = o[key]
+
+                                const toLoad = this.toLoad(key)
+                                if (toLoad) {
+                                    if (typeof target === 'string') {
+                                        const file = {
+                                            origin: this.directoryName,
+                                            path: target,
+                                            options: {
+                                                mode: 'cors' // Always enable CORS
+                                            }
                                         }
+                                        this.load(file)
                                     }
-                                    this.load(file)
+                                    else drill(target)
                                 }
-                                else drill(target)
                             }
                         }
-                    }
 
-                    drill(datasets)
+                        drill(datasets)
+                    } 
+                    
+                    // Import JS Files Accessed Remotely (from anywhere...)
+                    else {
+                        let fileText = new TextDecoder().decode(o.buffer)
+                        console.log(fileText)
+                    }
 
                 }).catch(e => {
                     console.error('File System Load Error', e)
@@ -385,6 +340,11 @@ export default class FileManager {
     }
 
     open = async (path, type, create=true) => {
+
+        if (!this.native) {
+            console.error('No native filesystem mounted...')
+            return
+        }
 
         let system = this.files.system
         let directoryHandle = this.native
