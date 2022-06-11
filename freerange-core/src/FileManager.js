@@ -200,13 +200,21 @@ export default class FileManager extends FileHandler {
         // -------- Remote Filesystem --------
         else if (typeof fileSystemInfo === 'string') {
 
-            await this.request(fileSystemInfo, { mode: 'cors' }, progressCallback)
+            let url
+            try {
+                url = new URL(fileSystemInfo).href
+            } catch {
+                url = this.getPath(fileSystemInfo, window.location.href)
+            }
+            console.log('NEWURL', url)
+
+            await this.request(url, { mode: 'cors' }, progressCallback)
                 .then(async o => {
 
                     const type = o.type.split(';')[0] // Get mimeType (not fully specified)
                     // Expose Files from the freerange FileSystem...
                     if (type === 'application/json') {
-                        this.directoryName = fileSystemInfo // Specify full file path
+                        this.directoryName = url // Specify full file path
                         const datasets = JSON.parse(new TextDecoder().decode(o.buffer))
 
                         const drill = (o) => {
@@ -216,7 +224,7 @@ export default class FileManager extends FileHandler {
                                 const toLoad = this.toLoad(key)
                                 if (toLoad) {
                                     if (typeof target === 'string') {
-                                        const arr = this.createRemoteFileInfo(undefined, `${fileSystemInfo}/${target}`)
+                                        const arr = this.createRemoteFileInfo(undefined, `${url}/${target}`)
                                         this.load(...arr)
                                     }
                                     else drill(target)
@@ -229,10 +237,10 @@ export default class FileManager extends FileHandler {
                     
                     // Load a Single Remote File
                     else {
-                        this.directoryName = new URL(fileSystemInfo).origin // Specify origin only
+                        this.directoryName = new URL(url).origin // Specify origin only
                         const blob = new Blob([o.buffer], {type})
-                        blob.name = fileSystemInfo.split('/').slice(-1)[0]
-                        const arr = this.createRemoteFileInfo(blob, fileSystemInfo)
+                        blob.name = url.split('/').slice(-1)[0]
+                        const arr = this.createRemoteFileInfo(blob, url)
                         await this.load(...arr)
                     }
 
