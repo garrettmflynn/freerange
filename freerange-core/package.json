@@ -1,6 +1,6 @@
 {
   "name": "freerange",
-  "version": "0.0.23",
+  "version": "0.0.24",
   "type": "module",
   "description": "File import and export utilities with free range-request support for remote files",
   "main": "dist/index.js",
