@@ -20,7 +20,7 @@ export default class RangeFile {
         this.directory = options.directory ?? ''
         this.path = options.path // Optional
 
-        this.method = (file.origin && file.path) ? 'remote' : 'local' // 'remote'
+        this.method = (file.origin != undefined && file.path != undefined) ? 'remote' : 'local' // 'remote'
         // this.edited = false
 
         if (this.method === 'remote') {
@@ -49,7 +49,13 @@ export default class RangeFile {
         newFile.webkitRelativePath = oldFile.webkitRelativePath || `${this.directory}/${this.path || this.name}`
 
         // Create File in System
-        if (createInSystem && !this.fileSystemHandle) this.fileSystemHandle = await this.parent.getFileHandle(this.name, { create: true });
+        if (createInSystem && !this.fileSystemHandle) {
+            if (!this.parent) {
+                console.warn(`Directory for file ${this.path} does not exist. Choosing a filesystem to mount...`);
+                await this.manager.transfer()
+                return
+            } else this.fileSystemHandle = await this.parent.getFileHandle(this.name, { create: true });
+        }
 
         return newFile
     }
@@ -92,7 +98,7 @@ export default class RangeFile {
             // Always Convert File to Blob Spoof
             if (!converted) {
                 if (Object.keys(this.storage).length === 0) this.file = await this.createFile(this.storage.buffer)
-                else console.warn(`No buffer created for ${this.name}...`)
+                else console.warn(`No buffer created for ${this.path}...`)
             }
         }
 
@@ -111,7 +117,8 @@ export default class RangeFile {
             console.warn('Will not deep clone file bodies that are class instances')
         } else {
             try {
-                this[`#original`] = JSON.parse(JSON.stringify(this[`#body`]))
+                if (typeof this[`#body`] === 'object') this[`#original`] = JSON.parse(JSON.stringify(this[`#body`]));
+                else this[`#original`] = this[`#body`]
             } catch (e) {
                 this[`#original`] = null //this[`#body`]
                 console.warn('Could not deep clone', e)
@@ -119,7 +126,7 @@ export default class RangeFile {
         }
 
         const toc = performance.now()
-        if (this.debug) console.warn(`Time to Deep Clone (${this.name}): ${toc - tic}ms`)
+        if (this.debug) console.warn(`Time to Deep Clone (${this.path}): ${toc - tic}ms`)
     }
 
     get = async () => {
@@ -134,7 +141,7 @@ export default class RangeFile {
                 if (!storageExists && !this.rangeSupported) this.storage = await this.getFileData() // Get Remote File Data (if range requests are not supported...)
                 this[`#body`] = await this.manager.decode(this.storage, this.file).catch(this.onError) // TODO: Remove strict dependency...
                 const tocDecode = performance.now()
-                if (this.debug) console.warn(`Time to Decode (${this.name}): ${tocDecode - ticDecode}ms`)
+                if (this.debug) console.warn(`Time to Decode (${this.path}): ${tocDecode - ticDecode}ms`)
             }
 
             // Track Original Object
@@ -143,7 +150,7 @@ export default class RangeFile {
             // Return Cache
             return this[`#body`]
         } catch (e) {
-            const msg = `Decoder failed for ${this.name} - ${this.type || 'No file type recognized'}`
+            const msg = `Decoder failed for ${this.path} - ${this.type || 'No file type recognized'}`
             console.warn(msg, e)
             return {}
         }
@@ -151,33 +158,38 @@ export default class RangeFile {
 
     set = (o) => this[`#body`] = o
 
-    sync = async (createInSystem) => {
+    sync = async (force, createInSystem) => {
 
         if (this.rangeSupported) {
-            console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.name})`)
+            console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.path})`)
             return true
         } else {
 
             const bodyString = JSON.stringify(this[`#body`])
             const ogString = JSON.stringify(this[`#original`])
-
+            const different = bodyString !== ogString
             // Check Equivalence
-            if (bodyString !== ogString){
-                    console.warn(`Synching file contents with buffer (${this.name})`, `${ogString} > ${bodyString}`)
+            if (force || different){
+                    console.warn(`Synching file contents with buffer (${this.path})`, (different) ? `${ogString} > ${bodyString}`: bodyString)
                     
                     // Encode New Object
                     try {
                         const ticEncode = performance.now()
                         this.storage.buffer = await this.manager.encode(this[`#body`], this.file).catch(this.onError)
                         const tocEncode = performance.now()
-                        if (this.debug) console.warn(`Time to Encode (${this.name}): ${tocEncode - ticEncode}ms`)
+                        if (this.debug) console.warn(`Time to Encode (${this.path}): ${tocEncode - ticEncode}ms`)
                     } catch (e) {
                         console.error('Could not encode as a buffer', o, this.mimeType, this.zipped)
                         this.onError(e)
                     }
 
                     // Create New File
-                    this.file = await this.createFile(this.storage.buffer, this.file, createInSystem) // Create file in system if it doesn't exist
+                    const newFile = await this.createFile(this.storage.buffer, this.file, createInSystem) // Create file in system if it doesn't exist
+                    if (newFile) this.file = newFile
+                    else {
+                        console.warn(`New file not created for ${this.path}`)
+                        return
+                    }
 
                     // Start Tracking Original File Again
                     this.setOriginal()
@@ -188,8 +200,9 @@ export default class RangeFile {
         }
     }
 
-    save = async () => {
-        const file = await this.sync(true)
+    // Always Force Save Remote Files
+    save = async (force=!!this.remote) => {
+        const file = await this.sync(force, true)
 
         if (file instanceof Blob){
             if (this.fileSystemHandle.size == file.size) return // Skip files which are already complete
@@ -198,7 +211,7 @@ export default class RangeFile {
             const tic = performance.now()
             await stream.pipeTo(writable)
             const toc = performance.now()
-            if (this.debug) console.warn(`Time to stream into file (${this.name}): ${toc-tic}ms`)
+            if (this.debug) console.warn(`Time to stream into file (${this.path}): ${toc-tic}ms`)
         }
     }
 
@@ -236,14 +249,14 @@ export default class RangeFile {
                     offset += arr.length
                 })
                 const toc = performance.now()
-                if (this.debug && start.length > 1) console.warn(`Time to merge arrays (${this.name}): ${toc-tic}ms`)
+                if (this.debug && start.length > 1) console.warn(`Time to merge arrays (${this.path}): ${toc-tic}ms`)
             }
 
             const tic = performance.now()
             let output = (property.ignoreGlobalPostprocess) ? bytes : this.config.preprocess(bytes)
             if (property.postprocess instanceof Function) output = await property.postprocess(output, this['#body'], i)
             const toc = performance.now()
-            if (this.debug) console.warn(`Time to postprocess bytes (${this.name}, ${key}, ${start}-${start+length}): ${toc-tic}ms`)
+            if (this.debug) console.warn(`Time to postprocess bytes (${this.path}, ${key}, ${start}-${start+length}): ${toc-tic}ms`)
             return output
 
         } else {

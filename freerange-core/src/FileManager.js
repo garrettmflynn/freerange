@@ -11,20 +11,44 @@ export default class FileManager extends FileHandler {
         this.native = null
         this.ignore = options.ignore ?? []
         this.directoryCacheName = 'freerangeCache'
-        this.directoryName = ''
         this.groupConditions = new Set()
         this.groups = {}
 
-        // Initialize File System
-        this.reset()
+        // Filesystem Registry
+        this.mounted = {}
+        this.files = {}
+        this.changelog = []
+        this.directoryName = undefined;
 
-        // Default Groups
+        // Add Default Group Behavior
         this.addDefaultGroups()
     }
 
-    reset = () => {
-        this.changelog = []
-        this.files = this.createFileSystemInfo()
+    create = (name, native, switchSystem) => {
+        const systemInfo = this.reset(name, native) // Create filesystem
+        if (switchSystem) this.switch(systemInfo.name) // Switch to this filesystem automatically
+        return systemInfo
+    }
+
+    switch = (name) => {
+        if (name) {
+            this.changelog = this.mounted[name].changelog
+            this.files = this.mounted[name].files
+            this.native = this.mounted[name].native
+            this.directoryName = name
+            if (this.onswitch instanceof Function) this.onswitch(name, this.files)
+        } else console.warn('No name provided for a directory to switch to.')
+    }
+
+    onswitch = null // Switch Callback
+
+    reset = (name = this.directoryName, native = this.native) => {
+        if (!this.mounted[name]) this.mounted[name] = {}
+        this.mounted[name].name = name
+        this.mounted[name].changelog = []
+        this.mounted[name].files = this.createFileSystemInfo()
+        this.mounted[name].native = native // Ensure there is always a native filesystem...
+        return this.mounted[name]
     }
 
     get = async (file, options = {}) => {
@@ -39,11 +63,14 @@ export default class FileManager extends FileHandler {
         return this.ignore.reduce((a, b) => a * !name?.includes(b), true)
     }
 
-    load = async (file, options={}) => {
+    load = async (file, options = {}) => {
 
         let path = options.path
         let type = options.type
-        const files = options.files ?? this.files
+
+        const directory = options.directory ?? options.system.name ?? this.directoryName
+        const mounted = this.mounted[directory]
+        const files = options.files ?? mounted?.files ?? this.files
 
         const toLoad = this.toLoad(file.name ?? file.path)
 
@@ -52,33 +79,41 @@ export default class FileManager extends FileHandler {
             // Get Path to File
             if (!path) path = file.webkitRelativePath ?? file.relativePath ?? file.path ?? ''
 
-            const fileOptions = { path, directory: this.directoryName }
+            const fileOptions = { path, directory }
 
             if (!(file instanceof RangeFile)) {
 
-                    let addToLog;
+                let addToLog;
 
-                    // Remote Files
-                    if (type === 'remote') {
-                        const directoryPath = (new URL(fileOptions.directory)).pathname.split('/')
-                        const url = new URL(fileOptions.path)
-                        path = file.path = fileOptions.path = url.pathname.split('/').filter((str, i) => directoryPath?.[i] != str).join('/')
-                    } 
-                    
-                    // Local Files
-                    else {
-                        if (!(file instanceof FileSystemFileHandle)) {
-                            const pathWithoutName = path.split('/').slice(0, -1).join('/')
-                            fileOptions.parent = await this.open(pathWithoutName, 'directory', false) // Don't create file
-                            addToLog = true
-                        }
+                // Remote Files
+                if (type === 'remote') {
+                    const directoryPath = new URL(fileOptions.directory).pathname.split("/");
+                    const url = new URL(fileOptions.path);
+                    path = file.path = fileOptions.path = url.pathname.split("/").filter((str, i) => directoryPath?.[i] != str).join("/");
+                }
+
+                // Local Files
+                else {
+                    if (!(file instanceof FileSystemFileHandle)) {
+                        const pathWithoutName = path.split('/').slice(0, -1).join('/')
+                        fileOptions.parent = await this.open(pathWithoutName, mounted, false) // Don't create file
+                        addToLog = true
                     }
+                }
 
-                    file = await this.get(file, fileOptions)
-                    if (addToLog) this.changelog.push(file) // Add file to changelog
+                file = await this.get(file, fileOptions)
+                if (addToLog) this.changelog.push(file) // Add file to changelog
             }
 
+            // Overwrite Existing Files
+            if (files.list.has(file.path)) {
+                console.warn(`Overwriting existing ${file.path} file`);
+                files.list.delete(file.path);
+              }
+
+            // Add File to Groups
             this.groupConditions.forEach(func => func(file, path, files))
+
             return file
         } else console.warn(`Ignoring ${file.name}`)
     }
@@ -87,14 +122,15 @@ export default class FileManager extends FileHandler {
         const files = {}
         for (let group in this.groups) {
             const groupInfo = this.groups[group]
-            files[group] = JSON.parse(JSON.stringify(groupInfo.initial)) // Deep clone
+            if (groupInfo.initial instanceof Map) files[group] =  new Map(groupInfo.initial)
+            else files[group] = JSON.parse(JSON.stringify(groupInfo.initial));
         }
 
         return files
     }
 
     addGroup = (name, initial, condition) => {
-        this.files[name] = initial
+        this.files[name] = initial // TODO: Ensure this group is added to all mounted filesystems
         this.groups[name] = {
             initial,
             condition
@@ -103,7 +139,7 @@ export default class FileManager extends FileHandler {
     }
 
     addDefaultGroups = () => {
-
+        
         // file system
         this.addGroup('system', {}, (file, path, files) => {
             let target = files.system
@@ -131,8 +167,8 @@ export default class FileManager extends FileHandler {
         })
 
         // keep a list of files
-        this.addGroup('list', [], (file, _, files) => {
-            files.list.push(file)
+        this.addGroup('list', new Map(), (file, _, files) => {
+            files.list.set(file.path, file)
         })
     }
 
@@ -164,19 +200,21 @@ export default class FileManager extends FileHandler {
         else return // Nothing in the cache
     }
 
-    getSubsystem = async (path) => {
+    getSubsystem = async (path, systemName=this.directoryName) => {
         const files = this.createFileSystemInfo()
         const split = path.split('/')
         const subDir = split.shift()
         path = split.join('/') // Path without directory name
-        let target = this.files.system[subDir]
+
+        const systemInfo = this.mounted[systemName]
+        let target = systemInfo.system[subDir]
         split.forEach(str => target = target[str])
 
         let drill = async (target, base) => {
             for (let key in target) {
                 const newBase = (base) ? base + '/' + key : key
                 const file = target[key]
-                if (file instanceof RangeFile) await this.load(...this.createFileInfo(file, newBase, files))
+                if (file instanceof RangeFile) await this.load(...this.createFileInfo(file, newBase, systemInfo))
                 else await drill(file, newBase)
             }
         }
@@ -185,12 +223,12 @@ export default class FileManager extends FileHandler {
         return files
     }
 
-    mount = async (fileSystemInfo, progressCallback) => {
-
-        this.reset() // Clear existing file system
+    mount = async (fileSystemInfo, switchSystem=true, progressCallback) => {
 
         if (!fileSystemInfo) fileSystemInfo = await window.showDirectoryPicker();
         await set(this.directoryCacheName, fileSystemInfo); // Saving file system info (of all types)
+
+        let fileSystemName = fileSystemInfo.name;
 
         // -------- File System Access API --------
         if (fileSystemInfo instanceof FileSystemDirectoryHandle) {
@@ -206,7 +244,6 @@ export default class FileManager extends FileHandler {
             } catch {
                 url = this.getPath(fileSystemInfo, window.location.href)
             }
-            console.log('NEWURL', url)
 
             await this.request(url, { mode: 'cors' }, progressCallback)
                 .then(async o => {
@@ -233,15 +270,18 @@ export default class FileManager extends FileHandler {
                         }
 
                         drill(datasets)
-                    } 
-                    
+                    }
+
                     // Load a Single Remote File
                     else {
-                        this.directoryName = new URL(url).origin // Specify origin only
-                        const blob = new Blob([o.buffer], {type})
-                        blob.name = url.split('/').slice(-1)[0]
-                        const arr = this.createRemoteFileInfo(blob, url)
-                        await this.load(...arr)
+                        const splitURL = url.split("/")
+                        const fileName = splitURL.pop();
+                        fileSystemName = splitURL.join('/') // base of the filesystem is the directory holding the entrypoint
+                        this.create(fileSystemName);
+                        const blob = new Blob([o.buffer], { type });
+                        blob.name = fileName;
+                        const arr = this.createRemoteFileInfo(blob, url);
+                        await this.load(...arr);
                     }
 
                 }).catch(e => {
@@ -250,21 +290,39 @@ export default class FileManager extends FileHandler {
         }
 
         // -------- File (default) --------
-        else await this.load(this.createFileInfo(fileSystemInfo))
+        else {
 
-        return this.files
+            // TODO: Remove this. One file is not a system
+            this.create(fileSystemName)
+            await this.load(this.createFileInfo(fileSystemInfo))
+        }
+
+
+        // Switch filesystem if specified by the user (or the first mounted...)
+        if (Object.keys(this.mounted).length === 1) switchSystem = true
+        if (switchSystem) this.switch(fileSystemName) 
+        else console.warn(`FileManager has not globally switched to the ${fileSystemName} filesystem`)
+        return this.mounted[fileSystemName]
     }
 
-    createFileInfo = (file={}, path, files, type) => {
-        if (type === 'remote') return this.createRemoteFileInfo(file, path)
+    createFileInfo = (file = {}, path, system=this.mounted[this.directoryName], type) => {
+        if (type === 'remote') return this.createRemoteFileInfo(file, path, system)
         else {
-            return [file, { path, files }]
+            return [file, { path, system}]
         }
     }
-    createRemoteFileInfo = (file={}, path) => {
+    createRemoteFileInfo = (file = {}, path, system) => {
+        const directory = this.directoryName ?? path.split('/').slice(0, -1).join('/')
+        
+        // Catch System Info
+        if (!system) {
+            system = this.mounted[directory]
+            console.warn(`Got system info for remote files`, system)
+        }
+        if (!system) system = {}
 
         file = Object.assign(file, {
-            origin: this.directoryName,
+            origin: directory,
             path,
             options: {
                 mode: 'cors' // Always enable CORS
@@ -273,9 +331,11 @@ export default class FileManager extends FileHandler {
 
         let options = {
             type: 'remote',
+            directory,
+            system
         }
 
-       return [file, options]
+        return [file, options]
     }
 
 
@@ -291,23 +351,23 @@ export default class FileManager extends FileHandler {
         return arr
     }
 
-    onhandle = async (handle, base = '', progressCallback) => {
+    onhandle = async (handle, base = '', systemInfo, progressCallback) => {
 
         await this.verifyPermission(handle)
 
         // Skip Directory Name in the Base String
-        if (handle.name != this.directoryName) base = (base) ? `${base}/${handle.name}` : handle.name
+        if (handle.name != systemInfo.name) base = (base) ? `${base}/${handle.name}` : handle.name
 
         const files = []
         if (handle.kind === 'file') {
             if (progressCallback instanceof Function) files.push({ handle, base }) // Add file details to an iterable
-            else await this.load(...this.createFileInfo(handle, base)) // Load file immediately
+            else await this.load(...this.createFileInfo(handle, base, systemInfo)) // Load file immediately
         } else if (handle.kind === 'directory') {
 
             const toLoad = this.toLoad(handle.name)
             if (toLoad) {
                 const arr = await this.iterAsync(handle.values(), (entry) => {
-                    return this.onhandle(entry, base, progressCallback)
+                    return this.onhandle(entry, base, systemInfo, progressCallback)
                 })
                 files.push(...arr.flat())
             }
@@ -319,9 +379,9 @@ export default class FileManager extends FileHandler {
         if (!base) {
             let count = 0
             await this.iterAsync(files, async (o) => {
-                await this.load(...this.createFileInfo(o.handle, o.base))
+                await this.load(...this.createFileInfo(o.handle, o.base, systemInfo.files))
                 count++
-                progressCallback(this.directoryName, count / files.length, files.length)
+                progressCallback(systemInfo.name, count / files.length, files.length)
             })
         }
 
@@ -329,23 +389,24 @@ export default class FileManager extends FileHandler {
     }
 
     createLocalFilesystem = async (handle, progressCallback) => {
-        this.directoryName = handle.name
-        this.native = handle
-        await this.onhandle(handle, null, progressCallback)
+        const systemInfo = this.create(handle.name, handle)
+        await this.onhandle(handle, null, systemInfo, progressCallback)
     }
 
-    sync = async () => {
-        return await this.iterAsync(this.files.list, async entry => await entry.sync())
+    sync = async (mountedName = this.directoryName) => {
+        const files = this.mounted[mountedName].files
+        return await this.iterAsync(Array.from(files.list.values()), async entry => await entry.sync())
     }
 
-    save = (progressCallback) => {
+    save = (mountedName = this.directoryName, force, progressCallback) => {
         return new Promise(async (resolve, reject) => {
             let i = 0
 
-            await this.iterAsync(this.files.list, async (rangeFile, j) => {
-                await rangeFile.save()
+            const files = this.mounted[mountedName].files
+            await this.iterAsync(Array.from(files.list.values()), async (rangeFile, j) => {
+                await rangeFile.save(force)
                 i++
-                if (progressCallback instanceof Function) progressCallback(this.directoryName, i / this.files.list.length, this.files.list.length)
+                if (progressCallback instanceof Function) progressCallback(mountedName, i / files.list.size, files.list.size)
             })
             this.changelog = [] // Reset changelog
             resolve()
@@ -371,58 +432,84 @@ export default class FileManager extends FileHandler {
         // OR await directoryHandle.remove();
     }
 
-    rename = async (name) => {
-        return await file.move(name);
-    }
+    // rename = async (name) => {
+    //     return await file.move(name);
+    // }
 
-    move = async (directory, name) => {
-        return await file.move(directory, name)
+    // move = async (directory, name) => {
+    //     return await file.move(directory, name)
+    // }
+
+    // Move Specified Filesystem to New Local Filesystem
+    transfer = async (targetName, toTransfer = this.files) => {
+        let transferList = Array.from(toTransfer.list.values()) // Old file list
+        if (!targetName) {
+            const info = await this.mount(undefined, false); // Mount and Switch
+            targetName = info.name
+        }
+
+        // Transferring Paths and Parents Between Systems
+        await Promise.all(transferList.map(async f => {
+            const path = f.path
+            const newFile = await this.load(...this.createFileInfo({
+                name: f.name,
+                data: f[`#body`] // Set file contents on new file
+            }, path, this.mounted[targetName])) // Load into selected filesystem
+            if (f.method === 'remote') f.parent = newFile.parent // Assign parent if remote file
+        }))
+
+        await this.save(targetName, true) // Force new files to save locally
+        await this.switch(targetName) // Switch when complete
+        return this.mounted[targetName].files // Return new filesystem
     }
 
     // getPath = async (file, parent) => {
     //     return await parent.resolve(file);
     // }
 
-    open = async (path, type, create=true) => {
+    open = async (path, systemInfo=this.mounted[this.directoryName], create = true) => {
+        let lastHandle = systemInfo.native;
 
-        if (!this.native) {
-            console.error('No native filesystem mounted...')
-            return
-        }
-
-        let system = this.files.system
-        let directoryHandle = this.native
-        const pathTokens = path.split('/')
-        let dirTokens = pathTokens.slice(0, -1)
-        const filename = pathTokens.slice(-1)[0]
-        if (type === 'directory') dirTokens = [...dirTokens, filename]
-
-        if (dirTokens.length > 0) {
-            for (const token of dirTokens) {
-
-                // Grab Filesystem Handle
-                directoryHandle = await directoryHandle.getDirectoryHandle(token, { create: true })
-
-                // Grab Internal System Location
-                if (!system[token]) system[token] = {}
-                system = system[token]
+        if (!lastHandle) {
+            console.error("No native filesystem mounted...");
+            return;
+          }
+          let system = systemInfo.files.system;
+          let pathTokens = path.split("/");
+          pathTokens = pathTokens.filter((f) => !!f);
+    
+          let fileHandle
+          if (pathTokens.length > 0) {
+            for (const token of pathTokens) {
+    
+              const handle = await lastHandle.getDirectoryHandle(token, { create: true }).catch(e => {
+                const existingFile = system[token];
+                if (existingFile) fileHandle = existingFile;
+                else fileHandle = directoryHandle.getFileHandle(filename, { create });
+              })
+    
+              if (handle) lastHandle = handle
+    
+              // Return a File
+              if (fileHandle) {
+                if (fileHandle instanceof FileSystemDirectoryHandle) return await this.load(...this.createFileSystemInfo(fileHandle));
+                else return fileHandle
+              } 
+              
+              // Still a Directory
+              else {
+                if (!system[token])
+                system[token] = {};
+              system = system[token];
+              }
             }
-        }
-
-        if (type === 'directory') return directoryHandle
-        else {
-
-            const existingFile = system[filename]
-            if (existingFile) return existingFile
-            else {
-                const fileHandle = directoryHandle.getFileHandle(filename, { create })
-                return await this.load(...this.createFileSystemInfo(fileHandle))
-            }
-        }
+          }
+    
+          return lastHandle // Return a Directory
     }
 
 
-    getPath = (path, ref='') => {
+    getPath = (path, ref = '') => {
         const dirTokens = ref.split('/')
         dirTokens.pop() // remove file name
 
@@ -452,64 +539,73 @@ export default class FileManager extends FileHandler {
     // Import ES6 Modules (and replace their imports with actual file imports!)
     import = async (file) => {
 
-        let text = await file.body
+        if (!file) {
+            console.error('Improper file passed to import()...')
+            return
+        } {
+            let  text = await file.body
 
-        try {
-            return await this['#import'](text)
-        } 
-        
-        // Catch Nested Imports
-        catch (e) {
-            
-            console.warn(`${file.name} contains ES6 imports. Manually importing these modules...`)
-
-            // Use a Regular Expression to Splice Out the Import Details
-            const importInfo = {}
-            var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
-            let m;
-            do {
-                m = re.exec(text)
-                if (m == null) m = re.exec(text); // be extra sure (weird bug)
-                if (m) {
-                    text = text.replace(m[0], ``) // Replace found text
-                    // let id = String(Math.floor(Math.random() * 1000000))
-                    const variables = m[1].trim().split(',')
-                    importInfo[m[3]] = variables // Save variables to path
-                    // variables.forEach(str => text = text.replaceAll(`${str}`, `${id}`)) // Assign random ID to the imported variables
-                }
-            } while (m);
-
-            // Import Files
-            for (let path in importInfo){
-                const variables = importInfo[path]     
-
-                let basePath = (file.method === 'remote') ? `${file.directory}/${file.path}` : file.path // Reconstruct full path for the base
-                const correctPath = this.getPath(path, basePath) 
-
-                const name = path.split('/').slice(-1)[0]
-
-                 // Mirror original type | TODO: Support remote URLS as imports for any mode...
-                const importFile = await this.load(...this.createFileInfo({name}, correctPath, undefined, file.method))
-
-                // Get That File and Import It
-                if (importFile){
-                    const imported = await this.import(importFile)
-                    if (variables.length > 1){
-                        variables.forEach(str => {
-                            text = `const ${str} = ${objToString(imported[str], false)}\n${text}`
-                        })
-                    } else {
-                        text = `const ${variables[0]} = ${objToString(imported, false)}\n${text}`
-                    }
-                } else {
-                    console.error(`${correctPath} not found. Aborting import...`)
-                    return;
-                }
+            try {
+                return await this['#import'](text)
             }
 
-            const tryImport = await this['#import'](text)
-            
-            return tryImport
+            // Catch Nested Imports
+            catch (e) {
+
+                console.warn(`${file.path} contains ES6 imports. Manually importing these modules...`)
+
+                // Use a Regular Expression to Splice Out the Import Details
+                const importInfo = {}
+                var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
+                let m;
+                do {
+                    m = re.exec(text)
+                    if (m == null) m = re.exec(text); // be extra sure (weird bug)
+                    if (m) {
+                        text = text.replace(m[0], ``) // Replace found text
+                        // let id = String(Math.floor(Math.random() * 1000000))
+                        const variables = m[1].trim().split(',')
+                        importInfo[m[3]] = variables // Save variables to path
+                        // variables.forEach(str => text = text.replaceAll(`${str}`, `${id}`)) // Assign random ID to the imported variables
+                    }
+                } while (m);
+
+                // Import Files
+                for (let path in importInfo) {
+
+                    // Check If Already Exists
+                    let correctPath = this.getPath(path)
+                    const variables = importInfo[path];
+                    let importFile = this.files.list.get(correctPath)
+                    if (!importFile) {
+                        const isRemote = file.method === "remote";
+                        let basePath = isRemote ? `${file.directory}/${file.path}` : file.path;
+                        correctPath = this.getPath(path, basePath);
+                        const name = path.split("/").slice(-1)[0];
+                        importFile = isRemote ? await this.load(...this.createFileInfo({ name }, correctPath, undefined, file.method)) : await this.open(correctPath);
+                    }
+
+                    if (importFile) {
+                        const imported = await this.import(importFile);
+                        if (variables.length > 1) {
+                            variables.forEach((str) => {
+                                text = `const ${str} = ${objToString(imported[str], false)}
+        ${text}`;
+                            });
+                        } else {
+                            text = `const ${variables[0]} = ${objToString(imported, false)}
+        ${text}`;
+                        }
+                    } else {
+                        console.error(`${correctPath} not found. Aborting import...`);
+                        return;
+                    }
+                }
+
+                const tryImport = await this['#import'](text)
+
+                return tryImport
+            }
         }
     }
 }
