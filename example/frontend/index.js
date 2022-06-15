@@ -1,5 +1,5 @@
 import config from '../config.js'
-import * as files from '../../freerange-core/src/index.js'
+import * as files from '../../src/frontend/src/index.js'
 import * as edf from '../../extensions/edf/index.js'
 
 // ------------- Get File Manager -------------

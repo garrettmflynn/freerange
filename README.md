@@ -18,26 +18,26 @@ const manager = new freerange.FileManager() // instantiate a manager
 
 document.querySelector('button').onclick = async () => {
 
-     await manager.mount()// choose a directory in your local filesystem
+     const system = await manager.mount()// choose a directory in your local filesystem
 
     // Create a Text File
-    const text = await manager.open('test.txt') // get (or create) the file
+    const text = await system.open('test.txt') // get (or create) the file
     const textContents = await text.body // get file contents
     console.log('Existing Text', textContents)
     text.body = 'Hello world' // set file contents
 
     // Create a JSON File
-    const json = await manager.open('test.json')
+    const json = await system.open('test.json')
     const jsonContents = await json.body
     console.log('Existing JSON', jsonContents)
     json.body = {key: 'value'}
 
-    const csv = await manager.open('test.csv')
+    const csv = await system.open('test.csv')
     const csvContents = await csv.body
     console.log('Existing CSV', csvContents)
     csvContents.push({row: csvContents.length}) // We can change the csvContent variable directly because it is an object reference
 
-    await manager.save() // save file contents for all files (if changed)
+    await system.save() // save file contents for all files (if changed)
 }
 ```
 

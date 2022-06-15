@@ -1,0 +1,26 @@
+{
+  "name": "freerange",
+  "version": "0.0.24",
+  "type": "module",
+  "description": "File import and export utilities with free range-request support for remote files",
+  "main": "dist/index.js",
+  "types": "dist/src/index.d.ts",
+  "files": [
+    "dist/*.js",
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ],
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "start": "tinybuild",
+    "build": "tinybuild bundle"
+  },
+  "devDependencies": {
+    "@types/wicg-entries-api": "^2020.8.2",
+    "@types/wicg-file-system-access": "^2020.9.5",
+    "tinybuild": "^0.3.141"
+  },
+  "dependencies": {
+    "idb-keyval": "^6.1.0"
+  }
+}

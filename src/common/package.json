@@ -1,0 +1,9 @@
+{
+  "name": "freerange-common",
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "idb-keyval": "^6.1.0",
+    "pako": "^2.0.4"
+  }
+}

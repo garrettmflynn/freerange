@@ -1,0 +1,11 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        /* -- Basic Options -- */
+        "rootDir": "./", /* Specify the root directory of input files. Use to control the output directory structure with --outDir. */
+        "outDir": "./dist",
+        "module": "esnext", 
+        "esModuleInterop": true
+    },
+    // "include": [", "../frontend/src/native/mount.ts"./"]
+}
