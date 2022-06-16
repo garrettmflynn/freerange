@@ -4,7 +4,7 @@ import mime from "mime-types";
 import * as types from './types'
 
 import { pipeline, Readable } from "stream";
-import FileHandler from '../../common/FileHandler';
+import FileHandler from '../../core/FileHandler';
 const fileInfo = promisify(stat);
 
 export default class FileSystem extends FileHandler {

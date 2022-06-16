@@ -13,6 +13,8 @@ export type DecodeInfo = {
 }
 
 // Track Freerange Extensions
+export type Loaders = {[x:string]: ExtensionType}
+
 export type ExtensionType = {
     mimeType: MimeType, // e.g. text/plain
     extension: string, // e.g. txt

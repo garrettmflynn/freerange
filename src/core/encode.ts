@@ -1,11 +1,11 @@
-import { RegistryType, ExtensionType, FileConfig } from "./types"
+import { RegistryType, ExtensionType, FileConfig, Loaders } from "./types"
 import {get} from "./info"
 import * as text from './defaults/text'
 import * as gzip from './defaults/gzip'
 import * as dataurl from './defaults/datauri'
 import * as defaults from './extensions'
 
-const encode = async (o, fileInfo, config?: FileConfig, defaultExtension: ExtensionType = text, extensions: {[x:string]:ExtensionType} = defaults.extensions, registry:RegistryType = defaults.registry) => {
+const encode = async (o, fileInfo, config?: FileConfig, defaultExtension: ExtensionType = text, extensions: Loaders = defaults.extensions, registry:RegistryType = defaults.registry) => {
     
     // Get Basic Info
     let buffer = new ArrayBuffer(0)

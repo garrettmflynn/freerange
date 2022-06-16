@@ -7,7 +7,7 @@ const iterAsync = async (iterable, asyncCallback) => {
         i++
     }
     const arr = await Promise.all(promises)
-    return arr
+    return arr//.map(p => p.value)
 }
 
 export default iterAsync

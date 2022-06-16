@@ -1,11 +1,11 @@
 import { RangeFile } from '.'
-import { AnyObj, GroupType, PathType, MethodType } from './types'
+import { AnyObj, GroupType, PathType, MethodType, ExtensionType, Loaders, RegistryType } from './types'
 import deepClone from './utils/clone'
 import { load } from './load'
 import save from './save'
 import iterAsync from './utils/iterate'
 import { createFile as createRemoteFile } from './remote'
-import { NativeOpenFunction, RemoteOpenFunction, MountMethod, NativeMountResponse, RemoteMountResponse } from './types/open'
+import { NativeOpenFunction, RemoteOpenFunction, MountMethod, NativeMountResponse, RemoteMountResponse, CombinedOpenConfig } from './types/open'
 import openRemote from './remote/open'
 import mountRemote from './remote/mount'
 import open from './open'
@@ -21,7 +21,10 @@ type SystemInfo = {
     native?: FileSystemDirectoryHandle
     ignore?: string[]
     debug?: boolean,
-    writable?: boolean
+    writable?: boolean,
+    progress?: ProgressCallbackType,
+    loaders?: Loaders,
+    // registry?: RegistryType
 }
 
 export default class System {
@@ -50,11 +53,13 @@ export default class System {
     // Controls
     ignore: SystemInfo['ignore']
     debug: SystemInfo['debug']
+    // registry: SystemInfo['registry']
+    loaders: SystemInfo['loaders']
+
 
     // Files Organization
     groups: Group = {}
     groupConditions: Set<Function> = new Set()
-
 
     constructor(name?: string, systemInfo: SystemInfo = {}) {
         this.name = name
@@ -63,6 +68,9 @@ export default class System {
         this.ignore = systemInfo.ignore ?? []
 
         this.writable = systemInfo.writable
+        this.progress = systemInfo.progress
+        this.loaders = systemInfo.loaders
+        // this.registry = systemInfo.registry
 
                 // -------------- Default Groupings --------------
         // file system
@@ -98,9 +106,14 @@ export default class System {
 
     init = async () => {
 
+        let mountConfig = {
+            system: this,
+            progress: this.progress
+        }
+
         // -------------- Default to Mount Native --------------
         if (this.isNative(this.name)){
-            const native = await this.mountNative()
+            const native = await this.mountNative(this.name, mountConfig)
             if (native){
                 this.native = native
                 this.name = this.native.name
@@ -116,11 +129,12 @@ export default class System {
             const path = this.name
             const isURL = url.isURL(path)
             const fileName = info.name(path)
+            const extension = info.extension(path)
 
             if (isURL){
 
                 // Case #1: Single File (including esm)
-                if (fileName) {
+                if (fileName && extension) {
                     const path = this.name
                     this.root = info.directory(path)
                     const file = await this.open(fileName) // Open the file
@@ -129,13 +143,10 @@ export default class System {
 
                 // Case #2: Freerange System
                 else {
-                    const root = await this.mountRemote(this.name, {
-                        system: this,
-                        progress: this.progress
-                    })
+
+                    const root = await this.mountRemote(this.name, mountConfig).catch((e) => console.warn('System initialization failed.', e))
 
                     if (root) this.root = root
-                    else console.error('Unable to connect to freerange filesystem!')
                 }
             }
 
@@ -221,6 +232,7 @@ export default class System {
                     path,
                     system: this,
                     debug: this.debug,
+                    loaders: this.loaders
                 })            
             } else console.warn(`Ignoring ${file.name}`)
         }
@@ -254,12 +266,16 @@ mountRemote: MountMethod<RemoteMountResponse>  = mountRemote
 
 
 // ------------ Core Open Method (with path update) ------------
-open = async (path) => {
+open = async (path, create?:boolean) => {
     if (!this.native) path = pathUtils.get(path, this.root) // Append root on remote
+
     return await open(path, { 
+        path,
         debug: this.debug, 
         system: this,
-        create: this.writable
+        create: create ?? this.writable,
+        loaders: this.loaders,
+        // registry: this.registry
     })
 }
 

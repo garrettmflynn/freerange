@@ -29,7 +29,14 @@ export const decode = (o, separator=',') => {
     rows.forEach((arr, i) => {
         let strObject = `{`
         strObject += arr.map(
-            (val, j) => `"${headers[j]}":${val}` // Otherwise provide object
+            (val, j) => {
+                try {
+                    const parsed = JSON.parse(val)
+                    return `"${headers[j]}":${parsed}` // Objecxt
+                } catch {
+                    return `"${headers[j]}":"${val}"` // String
+                } 
+            }
         ).join(',') 
         strObject+= '}'
         collection.push(strObject)

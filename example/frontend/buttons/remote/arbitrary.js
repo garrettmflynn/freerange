@@ -1,5 +1,5 @@
-import * as freerange from '../../dist/index.esm.js'
-import * as print from '../utils/print.js'
+import * as freerange from '../../../../src/frontend/src/index'
+import * as print from '../utils/print'
 
 const remoteCollectionTest = async (paths) => {
 

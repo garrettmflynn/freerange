@@ -12,21 +12,52 @@
 <body>
     <div id="app">
 
+        <h2>Basic Tests</h2>
+        <small><i>Check the Developer Console for Output</i></small>
+        <br>
+        <br>
+
+        <visualscript-button id=native size="small" secondary>Native Files</visualscript-button>
+        <visualscript-button id=remote_esm size="small" secondary>Remote ESM File</visualscript-button>
+        <visualscript-button id=remote_root size="small" secondary>Remote Root File</visualscript-button>
+        <visualscript-button id=remote_arbitrary size="small" secondary>Arbitrary Remote Collection</visualscript-button>
+        <br>
+        <br>
+
+        <h2>Edit Text</h2>
+        <small><i>Creates freerange/test.txt in the selected directory</i></small>
+        <br>
+        <br>
+
         <visualscript-button id=local primary>Mount Local Filesystem</visualscript-button>
-        <visualscript-button id=remote secondary>Mount Remote Filesystem</visualscript-button>
+        <br>
+        <br>
+        <textarea></textarea>
+        
+        <br>
+        <br>
 
-        <br/><br/>
+        <h2>Remote Filesystem</h2>
+        <small><i>Display a filesystem from Node.js</i></small>
+        <br>
+        <br>
+        <visualscript-button id=remote>Mount Remote Filesystem</visualscript-button>
 
-        <visualscript-loader type=linear></visualscript-loader>
+
         <div id=controls></div>
-
-        <h2>Range File</h2>
-        <div id=editor>
-            <visualscript-object-editor></visualscript-object-editor>
-        </div>
+        <br>
+        <br>
     </div>
 
     <div id="iterative-absolute">
+        <h4>General Requests</h4>
+        <visualscript-loader type=linear></visualscript-loader>
+
+        <h4>Range File</h4>
+        <div id=editor>
+            <visualscript-object-editor></visualscript-object-editor>
+        </div>
+
         <h4>Range Requests</h4>
         <div id=iterative>
             N/A

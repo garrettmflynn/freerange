@@ -5,7 +5,7 @@ import { ProgressCallbackType } from './types/config'
 const saveEach = async (rangeFile, config, counter, length) => {
     await rangeFile.save(config.force)
     counter = counter + 1
-    if (config.progressCallback instanceof Function) config.progressCallback(config.name, i / length, length)
+    if (config.progressCallback instanceof Function) config.progressCallback(config.name, counter / length, length)
 }
 
 const save = (name:string, files: RangeFile[], force, progressCallback?:ProgressCallbackType) => {

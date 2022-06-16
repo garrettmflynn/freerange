@@ -2,9 +2,7 @@ import * as loaders from './defaults'
 import * as types from './types/index'
 import * as configTypes from './types/config'
 import * as openTypes from './types/open'
-
-import transfer from './transfer.js'
-
+import transfer from './transfer'
 import setConfig from './config'
 import extend from './extend'
 import System from './System'

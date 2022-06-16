@@ -7,7 +7,12 @@ import { createFile } from './index';
 // Open Remote File
 const openRemote = async (path, config: RemoteOpenConfig): OpenFileResponse => {
 
-    let {system, loaders, registry, debug} = config
+    let {
+        system, 
+        loaders, 
+        // registry, 
+        debug
+    } = config
 
     return await handleFetch(path).then(async info => {
         const splitURL = info.url.split("/")
@@ -21,7 +26,7 @@ const openRemote = async (path, config: RemoteOpenConfig): OpenFileResponse => {
             path: info.url,
             system,
             loaders, 
-            registry, 
+            // registry, 
             debug, 
         })
 

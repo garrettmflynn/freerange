@@ -33,11 +33,9 @@ let mountRemote = async (url:string, config: {
             }
 
             drill(datasets)
-        } else console.error('Not able to get freerange FileSystem...')
+        } else throw 'Endpoint is not a freerange filesystem!'
 
-    }).catch(e => {
-        console.error('File System Load Error', e)
-    })
+    }).catch(e => {throw 'Unable to connect to freerange filesystem!'})
 
     return filePath
 }

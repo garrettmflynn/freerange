@@ -11,5 +11,5 @@ export const system = async (system) => {
 
 export const file = async (file) => {
     const contents = await file.body
-    console.log(`Existing ${file.extension}`, contents)
+    console.log(`Existing ${file.name}`, contents)
 }

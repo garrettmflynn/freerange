@@ -2,13 +2,25 @@ import config from '../config.js'
 import * as files from '../../src/frontend/src/index.js'
 import * as edf from '../../extensions/edf/index.js'
 
+// ------------- Run Button Configuration -------------
+import'./buttons'
+
+
 // ------------- Get File Manager -------------
-let file;
-const manager = new files.FileManager({
+let file, system;
+
+const loaders = { edf }
+const options = {
     debug: true,
-    ignore: ['DS_Store']
-})
-manager.extend(edf)
+    ignore: ['DS_Store'],
+    loaders
+}
+// const manager = new files.FileManager({
+//     debug: true,
+//     ignore: ['DS_Store']
+// })
+// manager.extend(edf)
+
 
 // ------------- Get Elements -------------
 const localMount = document.querySelector('#local')
@@ -18,10 +30,14 @@ const loader = document.querySelector('visualscript-loader')
 const editor = document.querySelector('visualscript-object-editor')
 const texteditor = document.querySelector('textarea')
 
+texteditor.oninput = () => {
+    if (file) file.body = texteditor.value
+}
+
 document.onkeydown = async (e) => {
     if (e.metaKey && e.code == 'KeyS') {
         e.preventDefault()
-        manager.save()
+        system.save()
     }
 };
 
@@ -31,7 +47,6 @@ editor.preprocess = async (val) => {
     
     for (let key in val){
         if (val[key] instanceof files.RangeFile && !val[key].rangeSupported) {
-            console.log(key, val[key])
             val[key] = await val[key].body
         }
     }
@@ -55,35 +70,42 @@ const globalProgressCallback = (id, ratio) => progressCallback(id, ratio, loader
 
 // ------------- Get Local Dataset -------------
 localMount.onClick = async () => {
-    await manager.mount(null, globalProgressCallback).then(onMount)
+    system = new files.System(undefined, options)
+    system.progress = globalProgressCallback
+    await system.init()
+    onMount(system.files)
 }
 
-const loaders = {}
+const visualLoaders = {}
 const progressCallback = (id, ratio, loader) => {
     if (!loader) {
-        if (!loaders[id]) {
-            loaders[id] = new visualscript.Loader()
-            loaders[id].type = 'linear'
-            loaders[id].text = id
-            iterativeDiv.insertAdjacentElement('afterbegin', loaders[id])
+        if (!visualLoaders[id]) {
+            visualLoaders[id] = new visualscript.Loader()
+            visualLoaders[id].type = 'linear'
+            visualLoaders[id].text = id
+            iterativeDiv.insertAdjacentElement('afterbegin', visualLoaders[id])
         }
-        loader = loaders[id]
+        loader = visualLoaders[id]
     } else loader.text = id // Set text to ID
     
     loader.progress = ratio
 }
 
 const onMount = async (files) => {
-    console.log('File System', files, files.system, manager)
+    console.log('File System', system)
     const allDirs = Object.keys(files.system).reduce((a,b) => a * b.split('.').length === 1, true)
     if (allDirs) for (let name in files.system) addDataset(name) // List datasets
-    else editor.set(files.system) // Highlight dir
+    else {
+        editor.set(files.system) // Highlight dir
+    }
 
-    file = await manager.open('freerange/test.txt')
-    if (file){
-        const value = await file.body
-        console.log('Value', value)
-        texteditor.value = value
+    if (system.native){
+        file = await system.open('freerange/test.txt', true)
+        console.log('freerange/test.txt', file)
+        if (file){
+            const value = await file.body
+            texteditor.value = value
+        }
     }
 }
 
@@ -98,7 +120,7 @@ const addDataset = (key) => {
 
         // ----------- REMOTE -----------
         console.log('Getting subsystem')
-        const dir = await manager.getSubsystem(key)
+        const dir = await system.getSubsystem(key)
         console.log(key, dir)
 
         editor.set(dir.system) // Show filesystem
@@ -119,13 +141,14 @@ const addDataset = (key) => {
 
 
 // ------------- Get Datasets -------------
-remoteMount.onClick = () => {
+remoteMount.onClick = async () => {
     const filesystemURL = `${config.origin}:${config.port}/filesystem`
     loader.text = filesystemURL
-    manager.mount(
-        filesystemURL, 
-        globalProgressCallback
-    ).then(onMount)
+
+    system = new files.System(filesystemURL, options)
+    await system.init()
+    system.progress = globalProgressCallback
+    onMount(system.files)
 }
 
 // // ------------- Try Mounting from the Cache -------------

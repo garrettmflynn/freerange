@@ -1,10 +1,10 @@
-import { ExtensionType, RegistryType, FileConfig } from "./types"
+import { ExtensionType, RegistryType, FileConfig, Loaders } from "./types"
 import {get} from "./info"
 import * as gzip from './defaults/gzip'
 import * as text from './defaults/text'
 import * as defaults from './extensions'
 
-const decode = async (o, fileInfo, config: FileConfig, defaultExtension: ExtensionType = text, extensions: {[x:string]:ExtensionType} = defaults.extensions, registry:RegistryType = defaults.registry) => {
+const decode = async (o, fileInfo, config: FileConfig, defaultExtension: ExtensionType = text, extensions: Loaders = defaults.extensions, registry:RegistryType = defaults.registry) => {
 
     // Get Basic Info
     const { mimeType, zipped } = get(fileInfo, registry)

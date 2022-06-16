@@ -1,7 +1,7 @@
 
-import { isClass } from './utils/classes.js'
-import { fetchRemote } from './remote/request.js'
-import { FileConfig, BlobFile, MethodType, RemoteFileType, SystemType } from './types/index'
+import { isClass } from './utils/classes'
+import { fetchRemote } from './remote/request'
+import { FileConfig, BlobFile, MethodType, RemoteFileType } from './types/index'
 import { RangeConfig, MimimumRangeInfo } from './types/range'
 import encode from './encode'
 import {get} from './info'
@@ -9,7 +9,8 @@ import decode from './decode'
 import transfer from './transfer'
 import * as defaults from './extensions'
 import * as path from './utils/path'
-import System from './System.js'
+import System from './System'
+import extend from './extend'
 
 const useRawArrayBuffer = ['nii', 'nwb'] // TODO: Handle this within extensions
 
@@ -32,8 +33,6 @@ export default class RangeFile {
     path: FileConfig['path']
     parent: FileConfig['parent']
     debug: FileConfig['debug']
-    handler?: FileConfig['handler']
-
 
     registry: any;
     loaders: any;
@@ -77,9 +76,11 @@ export default class RangeFile {
 
         this.debug = options.debug
 
-        this.registry = Object.assign(defaults.registry, options?.registry ?? {})
-        this.loaders = Object.assign(defaults.extensions, options?.loaders ?? {})
-
+        // Populate Loaders
+        const loaders = options?.loaders ?? {}
+        this.registry = Object.assign({}, defaults.registry) // Clone
+        this.loaders = Object.assign({}, defaults.extensions) // Clone
+        for (let name in loaders) extend(loaders[name], this.loaders, this.registry)
 
         // File Metadata
         this.system = options.system
@@ -152,6 +153,7 @@ export default class RangeFile {
         const rangeConfig = loader?.config
         if (rangeConfig) this.rangeConfig = rangeConfig
         else {
+            // console.log(this)
             if (!loader) console.warn(`Cannot find a configuration file for ${this.path}. Provide the correct loader to a FileHandler instance.`)
         }
 

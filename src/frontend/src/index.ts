@@ -1,5 +1,5 @@
 import FileManager from './FileManager'
-export * from '../../common/index'
+export * from '../../core/index'
 import System from './BrowserSystem'
 
 

@@ -1,7 +1,7 @@
-import { AnyObj, MethodType } from "../../../common/types";
-import RangeFile from "../../../common/RangeFile";
-import { createFile, load } from "../../../common/load";
-import { NativeOpenConfig, NativeOpenFunction } from 'src/common/types/open';
+import { AnyObj, MethodType } from "../../../core/types";
+import RangeFile from "../../../core/RangeFile";
+import { createFile, load } from "../../../core/load";
+import { NativeOpenConfig, NativeOpenFunction } from 'src/core/types/open';
 
 const openNative: NativeOpenFunction = async (
     path, 
@@ -22,7 +22,10 @@ const openNative: NativeOpenFunction = async (
       // Drill Into Directories
       if (pathTokens.length > 0) {
         for (const token of pathTokens) {
-          const handle = await nativeHandle.getDirectoryHandle(token, { create: true }).catch(e => console.warn(`${token} is an invalid file system handle`, e))
+          const handle = await nativeHandle.getDirectoryHandle(token, { create }).catch(e => {
+              if (create) console.warn(`${token} is an invalid file system handle`, e)
+              else console.warn(`Directory ${token} does not already exist.`)
+          })
           if (handle) {
             nativeHandle = handle
             if (!fileSystem[token])

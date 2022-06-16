@@ -1,5 +1,5 @@
-import { SystemType, MethodType, PathType, MountedType, RegistryType, ExtensionType } from './index'
-import { NativeOpenConfig, RemoteOpenConfig, CombinedOpenConfig } from './open'
+import { SystemType, MethodType, PathType, MountedType, Loaders, RegistryType } from './index'
+import { NativeOpenConfig, RemoteOpenConfig } from './open'
 import System from '../System'
 
 export type ProgressCallbackType = (mountedName:string, ratio: number, totalFiles: number) => null | undefined
@@ -24,8 +24,8 @@ export type ConfigType = {
 export type LoadConfigType = {
     path: PathType,
     system: System, 
-    registry?: RegistryType,
-    loaders?: {[x:string]: ExtensionType},
+    // registry?: RegistryType,
+    loaders?: Loaders,
     debug?: boolean,
 }
 
