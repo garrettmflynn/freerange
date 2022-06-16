@@ -1,7 +1,7 @@
 import RangeFile from '../RangeFile'
 import { PathType } from './index'
 import { ConfigType, LoadConfigType } from './config'
-import System from '../System'
+import System from '../system/System'
 
 
 export type MountMethod<res> = (systemInfo?: any, config?: Partial<ConfigType>) => res

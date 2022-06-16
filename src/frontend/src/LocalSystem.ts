@@ -1,4 +1,4 @@
-import System from 'src/core/System';
+import System from 'src/core/system/System';
 import openNative from './native/open'
 import mountNative from './native/mount';
 

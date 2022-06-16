@@ -1,8 +1,8 @@
-import { ProgressCallbackType } from "../types/config"
+import { ProgressCallbackType } from "../../types/config"
 import { handleFetch } from "./request"
 import { createFile } from "./index"
 import System from '../System';
-import { PathType } from '../types';
+import { PathType } from '../../types';
 
 let mountRemote = async (url:string, config: {
     system: System,

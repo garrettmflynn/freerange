@@ -1,4 +1,4 @@
-import { PathType, SystemType, RemoteFileType, FileType } from "../types"
+import { PathType, SystemType, RemoteFileType, FileType } from "../../types"
 import System from '../System'
 
 export const createFile = (file: FileType = {}, path: PathType, system: System): RemoteFileType => {

@@ -1,6 +1,6 @@
 import { SystemType, MethodType, PathType, MountedType } from './index'
 import { NativeOpenConfig, RemoteOpenConfig } from './open'
-import System from '../System'
+import System from '../system/System'
 import Codecs from '../codecs/Codecs'
 
 export type ProgressCallbackType = (mountedName:string, ratio: number, totalFiles: number) => null | undefined

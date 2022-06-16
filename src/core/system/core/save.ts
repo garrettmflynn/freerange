@@ -1,6 +1,6 @@
-import RangeFile from "../RangeFile"
-import iterAsync from "../utils/iterate"
-import { ProgressCallbackType } from '../types/config'
+import RangeFile from "../../RangeFile"
+import iterAsync from "../../utils/iterate"
+import { ProgressCallbackType } from '../../types/config'
 
 const saveEach = async (rangeFile, config, counter, length) => {
     await rangeFile.save(config.force)

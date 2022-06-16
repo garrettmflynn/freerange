@@ -1,7 +1,7 @@
 import { RangeConfig } from "./range";
 import RangeFile from '../RangeFile';
 import { LoadConfigType } from './config';
-import System from '../System';
+import System from '../system/System';
 
 export type MimeType = string // e.g. text/plain
 

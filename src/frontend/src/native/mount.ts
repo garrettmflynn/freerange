@@ -1,4 +1,4 @@
-import System from 'src/core/System'
+import System from 'src/core/system/System'
 import { ConfigType } from 'src/core/types/config'
 import verifyPermission from './verify'
 import iterAsync from 'src/core/utils/iterate'

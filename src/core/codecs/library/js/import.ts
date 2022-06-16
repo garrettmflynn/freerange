@@ -1,6 +1,6 @@
 import * as pathUtils from "../../../utils/path"
 import { objToString } from "../../../utils/parse.utils";
-import { handleFetch } from "../../../remote/request";
+import { handleFetch } from "../../../system/remote/request";
 import { BlobFile } from "../../../types";
 import { ESMConfigType } from '../../../types/config';
 

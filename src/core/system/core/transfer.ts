@@ -1,4 +1,4 @@
-import RangeFile from "../RangeFile";
+import RangeFile from "../../RangeFile";
 import System from '../System';
 
 const transferEach = async (f, system) => {

@@ -2,7 +2,7 @@
 // File Open Utility with Optional Manager Support
 //
 
-import { CombinedOpenConfig } from '../types/open'
+import { CombinedOpenConfig } from '../../types/open'
 
 const open = async (path, config: CombinedOpenConfig) => {
 

@@ -1,6 +1,6 @@
 import { AnyObj, MethodType } from "../../../core/types";
 import RangeFile from "../../../core/RangeFile";
-import { createFile, load } from "../../../core/methods/load";
+import { createFile, load } from "../../../core/system/core/load";
 import { NativeOpenConfig, NativeOpenFunction } from 'src/core/types/open';
 
 const openNative: NativeOpenFunction = async (

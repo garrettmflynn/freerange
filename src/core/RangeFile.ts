@@ -1,14 +1,12 @@
 
 import { isClass } from './utils/classes'
-import { fetchRemote } from './remote/request'
+import { fetchRemote } from './system/remote/request'
 import { FileConfig, BlobFile, MethodType, RemoteFileType, MimeType } from './types/index'
 import { RangeConfig, MimimumRangeInfo } from './types/range'
-import encode from './codecs/encode'
 import {get} from './utils/info'
-import decode from './codecs/decode'
-import transfer from './methods/transfer'
+import transfer from './system/core/transfer'
 import * as path from './utils/path'
-import System from './System'
+import System from './system/System'
 
 const useRawArrayBuffer = ['nii', 'nwb'] // TODO: Handle this within extensions
 

@@ -1,6 +1,6 @@
-import * as pathUtils from "../utils/path"
-import { PathType, AnyObj, TimeoutRequestInit } from "../types"
-import { ConfigType } from '../types/config'
+import * as pathUtils from "../../utils/path"
+import { PathType, AnyObj, TimeoutRequestInit } from "../../types"
+import { ConfigType } from '../../types/config'
 
 type ResponseType = {
     buffer: Uint8Array,

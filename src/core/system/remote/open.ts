@@ -1,7 +1,7 @@
 import { handleFetch } from "./request";
-import { BlobFile, MethodType } from "../types";
-import { OpenFileResponse, RemoteOpenConfig } from '../types/open';
-import { load } from '../methods/load';
+import { BlobFile, MethodType } from "../../types";
+import { OpenFileResponse, RemoteOpenConfig } from '../../types/open';
+import { load } from '../core/load';
 import { createFile } from './index';
 
 // Open Remote File

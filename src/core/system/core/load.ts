@@ -1,8 +1,8 @@
-import { FileConfig, PathType, FileType } from "../types";
-import RangeFile from "../RangeFile";
+import { FileConfig, PathType, FileType } from "../../types";
+import RangeFile from "../../RangeFile";
 import openSystem from "./open";
 import { createFile as createRemoteFile } from "../remote";
-import { LoadConfigType } from '../types/config';
+import { LoadConfigType } from '../../types/config';
 import System from '../System';
 
 export const load = async (file, config: LoadConfigType) => {
