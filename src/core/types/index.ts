@@ -12,12 +12,13 @@ export type DecodeInfo = {
     text?: string
 }
 
-// Track Freerange Extensions
-export type Loaders = {[x:string]: ExtensionType}
+// Track Freerange Codecs
+export type CodecCollection = {[x:string]: Codec}
+export type CodecMap = Map<MimeType, Codec>
 
-export type ExtensionType = {
-    mimeType: MimeType, // e.g. text/plain
-    extension: string, // e.g. txt
+export type Codec = {
+    type: MimeType, // e.g. text/plain
+    suffixes: string | string[], // e.g. txt
     decode: (info, config) => any, // Object
     encode: (object, config) => ArrayBuffer, // Buffer
     config?: RangeConfig

@@ -1,16 +1,14 @@
 
 import { isClass } from './utils/classes'
 import { fetchRemote } from './remote/request'
-import { FileConfig, BlobFile, MethodType, RemoteFileType } from './types/index'
+import { FileConfig, BlobFile, MethodType, RemoteFileType, MimeType } from './types/index'
 import { RangeConfig, MimimumRangeInfo } from './types/range'
-import encode from './encode'
-import {get} from './info'
-import decode from './decode'
-import transfer from './transfer'
-import * as defaults from './extensions'
+import encode from './codecs/encode'
+import {get} from './utils/info'
+import decode from './codecs/decode'
+import transfer from './methods/transfer'
 import * as path from './utils/path'
 import System from './System'
-import extend from './extend'
 
 const useRawArrayBuffer = ['nii', 'nwb'] // TODO: Handle this within extensions
 
@@ -34,15 +32,12 @@ export default class RangeFile {
     parent: FileConfig['parent']
     debug: FileConfig['debug']
 
-    registry: any;
-    loaders: any;
-
     // File Derived Information
     name: string
     type: string
-    mimeType: string;
+    mimeType: MimeType;
     zipped: boolean;
-    extension: string;
+    suffix: string;
 
     rangeConfig?: RangeConfig = null;
     rangeSupported: boolean = false;
@@ -75,12 +70,6 @@ export default class RangeFile {
         if (options.parent) this.parent =  options.parent // Parent in the filesystem
 
         this.debug = options.debug
-
-        // Populate Loaders
-        const loaders = options?.loaders ?? {}
-        this.registry = Object.assign({}, defaults.registry) // Clone
-        this.loaders = Object.assign({}, defaults.extensions) // Clone
-        for (let name in loaders) extend(loaders[name], this.loaders, this.registry)
 
         // File Metadata
         this.system = options.system
@@ -132,10 +121,10 @@ export default class RangeFile {
             // Get File Information
             this.name = file.name
             this.type = file.type
-            const { mimeType, zipped, extension } = get(file, this.registry)
+            const { mimeType, zipped, suffix } = get(file.type, file.name, this.system.codecs)
             this.mimeType = mimeType
             this.zipped = zipped
-            this.extension = extension
+            this.suffix = suffix
         } else console.warn('Valid file object not provided...')
     }
 
@@ -148,13 +137,12 @@ export default class RangeFile {
             this.loadFileInfo(this.file)
         }
 
-        // Check Handler for Extension Config
-        const loader = this.loaders[this.mimeType]
+        // Check Codecs for Codec Config
+        const loader = this.system.codecs.get(this.mimeType)
         const rangeConfig = loader?.config
         if (rangeConfig) this.rangeConfig = rangeConfig
         else {
-            // console.log(this)
-            if (!loader) console.warn(`Cannot find a configuration file for ${this.path}. Provide the correct loader to a FileHandler instance.`)
+            if (!loader) console.warn(`Cannot find a configuration file for ${this.path}. Please provide the correct codec.`)
         }
 
         this.rangeSupported = !!this.rangeConfig 
@@ -216,7 +204,7 @@ export default class RangeFile {
 
                 if (!storageExists && !this.rangeSupported) this.storage = await this.getFileData() // Get Remote File Data (if range requests are not supported...)
 
-                this[`#body`] = await decode(this.storage, this.file, this.config, undefined, this.loaders, this.registry).catch(this.onError)
+                this[`#body`] = await this.system.codecs.decode(this.storage, this.file.type, this.file.name, this.config).catch(this.onError)
                 const tocDecode = performance.now()
                 if (this.debug) console.warn(`Time to Decode (${this.path}): ${tocDecode - ticDecode}ms`)
             }
@@ -254,7 +242,7 @@ export default class RangeFile {
                     const toEncode = this[`#body`] ?? '' // Do not encode undefined values
                     try {
                         const ticEncode = performance.now()
-                        this.storage.buffer = await encode(toEncode, this.file,  this.config, undefined, this.loaders, this.registry)//.catch(this.onError)
+                        this.storage.buffer = await this.system.codecs.encode(toEncode, this.file.type, this.file.name,  this.config)//.catch(this.onError)
                         const tocEncode = performance.now()
                         if (this.debug) console.warn(`Time to Encode (${this.path}): ${tocEncode - ticEncode}ms`)
                     } catch (e) {
@@ -485,7 +473,7 @@ export default class RangeFile {
                         if (this.debug) console.warn(`${this.file.name} appears to be empty`)
                         resolve({file: this.file, [method]: new Uint8Array()})
                     }
-                    else if (data instanceof ArrayBuffer && !useRawArrayBuffer.includes(this.extension)) data = new Uint8Array(data) // Keep .nii files as raw ArrayBuffer
+                    else if (data instanceof ArrayBuffer && !useRawArrayBuffer.includes(this.suffix)) data = new Uint8Array(data) // Keep .nii files as raw ArrayBuffer
                     resolve({file: this.file, [method]: data})
                 } 
 

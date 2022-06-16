@@ -1,6 +1,7 @@
-import { SystemType, MethodType, PathType, MountedType, Loaders, RegistryType } from './index'
+import { SystemType, MethodType, PathType, MountedType } from './index'
 import { NativeOpenConfig, RemoteOpenConfig } from './open'
 import System from '../System'
+import Codecs from '../codecs/Codecs'
 
 export type ProgressCallbackType = (mountedName:string, ratio: number, totalFiles: number) => null | undefined
 
@@ -24,8 +25,7 @@ export type ConfigType = {
 export type LoadConfigType = {
     path: PathType,
     system: System, 
-    // registry?: RegistryType,
-    loaders?: Loaders,
+    codecs?: Codecs,
     debug?: boolean,
 }
 

@@ -1,13 +1,16 @@
-import decode from './decode'
-import encode from './encode'
+import decode from './codecs/decode'
+import encode from './codecs/encode'
 
-import open from './open'
+import transfer from './methods/transfer'
 import RangeFile from './RangeFile'
-export * from './extensions'
+import * as codecs from './codecs'
+import Codecs from './codecs/Codecs'
 
 export {
     decode, 
     encode, 
-    open,
-    RangeFile
+    transfer,
+    RangeFile,
+    codecs,
+    Codecs
 }

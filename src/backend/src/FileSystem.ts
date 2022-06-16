@@ -4,18 +4,17 @@ import mime from "mime-types";
 import * as types from './types'
 
 import { pipeline, Readable } from "stream";
-import FileHandler from '../../core/FileHandler';
+import System from 'src/core/System';
 const fileInfo = promisify(stat);
 
-export default class FileSystem extends FileHandler {
+export default class FileSystem extends System {
 
-  root: types.OptionsType['root'];
-  ['404']: types.OptionsType['404']
+  ['404']: types.BackendSystemInfo['404']
 
-  constructor(options:types.OptionsType = {}) {
-    super(options)
-    this.setRoot(options.root)
-    this['404'] = options['404'] ?? ''
+  constructor(root, info:types.BackendSystemInfo = {}) {
+    super(root, info)
+    this.setRoot(root) // Constraint on the filesystem available to users
+    this['404'] = info['404'] ?? ''
     this['#cache'] = {}
   }
 
@@ -30,6 +29,7 @@ export default class FileSystem extends FileHandler {
     } else this.root = './'
   }
 
+  // List Filesystem
   list = (req, res) => {
 
     try {
@@ -72,10 +72,12 @@ export default class FileSystem extends FileHandler {
     } catch (e) { this.onError(e, 'list()')}
   }
 
+  // Show Error
   onError = (e, prefix="[FileSystem]") => {
     console.error(`${prefix} Error`, e)
   }
 
+  // Handle Get Request
   get = async (req, res) => {
 
     try {
@@ -86,8 +88,8 @@ export default class FileSystem extends FileHandler {
       let contentType = mime.contentType(filePath)
       if (contentType === filePath) {
         const split = filePath.split('.')
-        const extension = split[split.length - 1]
-        contentType = this.registry[extension] // Approximation through our API
+        const suffix = split[split.length - 1]
+        contentType = this.codecs.getType(suffix) // Approximation through our API
       }
 
       const range = req.headers.range;

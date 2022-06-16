@@ -1,6 +1,6 @@
 import config from '../config.js'
-import * as files from '../../src/frontend/src/index.js'
-import * as edf from '../../extensions/edf/index.js'
+import * as freerange from '../../src/frontend/src/index.js'
+import * as edf from '../../codecs/edf/index.js'
 
 // ------------- Run Button Configuration -------------
 import'./buttons'
@@ -9,17 +9,27 @@ import'./buttons'
 // ------------- Get File Manager -------------
 let file, system;
 
-const loaders = { edf }
 const options = {
     debug: true,
     ignore: ['DS_Store'],
-    loaders
+    codecs: { edf }
 }
-// const manager = new files.FileManager({
-//     debug: true,
-//     ignore: ['DS_Store']
-// })
-// manager.extend(edf)
+
+console.log(navigator.mimeTypes)
+
+const codecs = new freerange.Codecs()
+codecs.encode('Hi there').then(async ab => {
+    const text = await codecs.decode(ab)
+    console.log('text', text)
+})
+
+const jsonPlugin = freerange.codecs.json
+codecs.add(jsonPlugin)
+codecs.encode({key: 'value'}, jsonPlugin.type).then(async ab => {
+    const json = await codecs.decode(ab, jsonPlugin.type)
+    console.log('JSON', json)
+})
+
 
 
 // ------------- Get Elements -------------
@@ -46,13 +56,13 @@ editor.preprocess = async (val) => {
     let resolved
     
     for (let key in val){
-        if (val[key] instanceof files.RangeFile && !val[key].rangeSupported) {
+        if (val[key] instanceof freerange.RangeFile && !val[key].rangeSupported) {
             val[key] = await val[key].body
         }
     }
 
 
-    if (val instanceof files.RangeFile) resolved = val.body  // get body
+    if (val instanceof freerange.RangeFile) resolved = val.body  // get body
     else resolved = await val 
 
     if (resolved.length > maxArrLen) {
@@ -70,7 +80,7 @@ const globalProgressCallback = (id, ratio) => progressCallback(id, ratio, loader
 
 // ------------- Get Local Dataset -------------
 localMount.onClick = async () => {
-    system = new files.System(undefined, options)
+    system = new freerange.System(undefined, options)
     system.progress = globalProgressCallback
     await system.init()
     onMount(system.files)
@@ -145,7 +155,7 @@ remoteMount.onClick = async () => {
     const filesystemURL = `${config.origin}:${config.port}/filesystem`
     loader.text = filesystemURL
 
-    system = new files.System(filesystemURL, options)
+    system = new freerange.System(filesystemURL, options)
     await system.init()
     system.progress = globalProgressCallback
     onMount(system.files)

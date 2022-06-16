@@ -1,9 +1,6 @@
-import FileManager from './FileManager'
 export * from '../../core/index'
-import System from './BrowserSystem'
-
+import System from './LocalSystem'
 
 export {
-  FileManager,
   System
 }

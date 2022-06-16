@@ -2,15 +2,7 @@ import * as freerange from '../../../src/frontend/src/index'
 import * as print from './utils/print'
 import { System } from '../../../src/frontend/src/index'
 
-const manager = new freerange.FileManager({
-    debug: true,
-    ignore: ['.DS_Store']
-})
-
 const nativeTests = async (config) => {
-
-    console.log('freerange manager', manager)
-
 
     console.log('------------------ NATIVE TESTS ------------------')
     const localSystem = new System()

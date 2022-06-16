@@ -1,31 +1,23 @@
-import { RangeFile } from '.'
-import { AnyObj, GroupType, PathType, MethodType, ExtensionType, Loaders, RegistryType } from './types'
+import { AnyObj, GroupType, PathType } from './types'
+import { SystemInfo, Group, ConditionType } from './types/system'
+import { ProgressCallbackType } from './types/config'
+
+import RangeFile from '../core/RangeFile'
 import deepClone from './utils/clone'
-import { load } from './load'
-import save from './save'
+import { load } from './methods/load'
+import save from './methods/save'
 import iterAsync from './utils/iterate'
 import { createFile as createRemoteFile } from './remote'
 import { NativeOpenFunction, RemoteOpenFunction, MountMethod, NativeMountResponse, RemoteMountResponse, CombinedOpenConfig } from './types/open'
 import openRemote from './remote/open'
 import mountRemote from './remote/mount'
-import open from './open'
-import * as info from './info'
+import open from './methods/open'
+import * as info from './utils/info'
 import * as url from './utils/url'
 import * as pathUtils from './utils/path'
-import { ProgressCallbackType } from './types/config'
-
-type Group = {[x:string]: GroupType}
-type ConditionType = (info:any) => boolean
-
-type SystemInfo = {
-    native?: FileSystemDirectoryHandle
-    ignore?: string[]
-    debug?: boolean,
-    writable?: boolean,
-    progress?: ProgressCallbackType,
-    loaders?: Loaders,
-    // registry?: RegistryType
-}
+import Codecs from './codecs/Codecs'
+import * as codecs from './codecs/index'
+import transfer from './methods/transfer'
 
 export default class System {
 
@@ -54,7 +46,7 @@ export default class System {
     ignore: SystemInfo['ignore']
     debug: SystemInfo['debug']
     // registry: SystemInfo['registry']
-    loaders: SystemInfo['loaders']
+    codecs: Codecs
 
 
     // Files Organization
@@ -69,8 +61,7 @@ export default class System {
 
         this.writable = systemInfo.writable
         this.progress = systemInfo.progress
-        this.loaders = systemInfo.loaders
-        // this.registry = systemInfo.registry
+        this.codecs = new Codecs(Object.assign(codecs, systemInfo.codecs)) // Provide all codecs
 
                 // -------------- Default Groupings --------------
         // file system
@@ -87,10 +78,10 @@ export default class System {
 
         // file type
         this.addGroup('types', {}, (file, _, files) => {
-            const extension = file.extension ?? file.name
-            if (extension) {
-                if (!files.types[extension]) files.types[extension] = []
-                files.types[extension].push(file)
+            const suffix = file.suffix ?? file.name
+            if (suffix) {
+                if (!files.types[suffix]) files.types[suffix] = []
+                files.types[suffix].push(file)
             } // e.g. README, CHANGES
         })
 
@@ -129,12 +120,12 @@ export default class System {
             const path = this.name
             const isURL = url.isURL(path)
             const fileName = info.name(path)
-            const extension = info.extension(path)
+            const suffix = info.suffix(path)
 
             if (isURL){
 
                 // Case #1: Single File (including esm)
-                if (fileName && extension) {
+                if (fileName && suffix) {
                     const path = this.name
                     this.root = info.directory(path)
                     const file = await this.open(fileName) // Open the file
@@ -232,7 +223,7 @@ export default class System {
                     path,
                     system: this,
                     debug: this.debug,
-                    loaders: this.loaders
+                    codecs: this.codecs
                 })            
             } else console.warn(`Ignoring ${file.name}`)
         }
@@ -274,7 +265,7 @@ open = async (path, create?:boolean) => {
         debug: this.debug, 
         system: this,
         create: create ?? this.writable,
-        loaders: this.loaders,
+        codecs: this.codecs,
         // registry: this.registry
     })
 }
@@ -284,5 +275,8 @@ save = async (force, progress:ProgressCallbackType = this.progress) => await sav
 
 // ------------ RangeFile Sync Method ------------
 sync = async () => await iterAsync(Array.from(this.files.list.values()), async entry => await entry.sync())
+
+// ------------ Core Transfer Method ------------
+transfer = async (target:System) => await transfer(this, target)
 
 }
