@@ -4778,7 +4778,7 @@ class ObjectEditor extends s$1 {
         <div class="info">
           <span class="name">${key}</span><br>
           <span class="value">${(isObject
-                ? (Object.keys(val).length ? val.constructor.name : $ `Empty ${val.constructor.name}`)
+                ? (Object.keys(val).length ? val.constructor?.name : $ `Empty ${val.constructor?.name}`)
                 : '')}</span>
         </div>
           ${isObject ? yield this.getActions(key, o) : display}

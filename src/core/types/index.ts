@@ -12,6 +12,11 @@ export type DecodeInfo = {
     text?: string
 }
 
+export type ResponseType = {
+    buffer: ArrayBuffer,
+    type: string
+}
+
 // Track Freerange Codecs
 export type CodecCollection = {[x:string]: Codec}
 export type CodecMap = Map<MimeType, Codec>
@@ -32,7 +37,7 @@ export type RegistryType = {
 
 // Basic File Types and Related Options
 export type PathType = string
-export type MethodType = 'remote' | 'native'
+export type MethodType = 'remote' | 'native' | 'transferred'
 export type OptionsType = {
     ignore?: string[]
     debug?: boolean
@@ -74,7 +79,6 @@ export type RemoteFileType = {
 export type FileConfig = {
     path: string, // Required for the actual file
     directory: SystemType['name'] // Required for the actual file
-    parent?: FileSystemDirectoryHandle
 } & LoadConfigType
 
 // File System Organization

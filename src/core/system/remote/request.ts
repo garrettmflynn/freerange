@@ -1,11 +1,6 @@
 import * as pathUtils from "../../utils/path"
-import { PathType, AnyObj, TimeoutRequestInit } from "../../types"
+import { PathType, AnyObj, TimeoutRequestInit, ResponseType } from "../../types"
 import { ConfigType } from '../../types/config'
-
-type ResponseType = {
-    buffer: Uint8Array,
-    type: string
-}
 
 const getURL = (path) => {
     let url
@@ -34,40 +29,51 @@ export const fetchRemote = async (url, options:TimeoutRequestInit={}, progressCa
     options.timeout = 3000 // Default timeout at 3s
     const response = await fetchWithTimeout(url, options)
 
-    return new Promise(resolve => {
+    return new Promise(async resolve => {
 
         if (response) {
-            const reader = response.body.getReader();
-            const bytes = parseInt(response.headers.get('Content-Length'), 10)
+
 
             const type = response.headers.get('Content-Type')
 
-            let bytesReceived = 0
-            let buffer = [];
+            // Browser Remote Parser
+            if (globalThis.FREERANGE_NODE) {
+                const buffer = await response.arrayBuffer()
+                resolve({buffer, type})
+            }
+            
+            // Browser Remote Parser
+            else {
 
-            const processBuffer = async ({ done, value }) => {
+                const reader = response.body.getReader();
 
-                if (done) {
-                    const config: AnyObj = {}
-                    if (typeof type === 'string') config.type = type
-                    const blob = new Blob(buffer, config)
-                    const ab = await blob.arrayBuffer()
-                    resolve({buffer: new Uint8Array(ab), type})
-                    return;
+                const bytes = parseInt(response.headers.get('Content-Length'), 10)
+                let bytesReceived = 0
+                let buffer = [];
+
+                const processBuffer = async ({ done, value }) => {
+
+                    if (done) {
+                        const config: AnyObj = {}
+                        if (typeof type === 'string') config.type = type
+                        const blob = new Blob(buffer, config)
+                        const ab = await blob.arrayBuffer()
+                        resolve({buffer: new Uint8Array(ab), type})
+                        return;
+                    }
+
+                    bytesReceived += value.length;
+                    const chunk = value;
+                    buffer.push(chunk);
+
+                    if (progressCallback instanceof Function) progressCallback(response.headers.get('Range'), bytesReceived / bytes, bytes)
+
+                    // Read some more, and call this function again
+                    return reader.read().then(processBuffer)
                 }
 
-                bytesReceived += value.length;
-                const chunk = value;
-                buffer.push(chunk);
-
-                console.log("response.headers.get('Range')", response.headers.get('Range'))
-                if (progressCallback instanceof Function) progressCallback(response.headers.get('Range'), bytesReceived / bytes, bytes)
-
-                // Read some more, and call this function again
-                return reader.read().then(processBuffer)
+                reader.read().then(processBuffer);
             }
-
-            reader.read().then(processBuffer);
 
         } else {
             console.warn('Response not received!', options.headers)
@@ -84,7 +90,7 @@ async function fetchWithTimeout(resource, options:TimeoutRequestInit = {}) {
         console.warn(`Request to ${resource} took longer than ${(timeout/1000).toFixed(2)}s`)
         controller.abort()
     }, timeout);
-    const response = await fetch(resource, {
+    const response = await globalThis.fetch(resource, {
       ...options,
       signal: controller.signal  
     });

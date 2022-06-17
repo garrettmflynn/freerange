@@ -13,27 +13,30 @@ export const load = async (file, config: LoadConfigType) => {
             config.path = path // Update path if changed
             let fileConfig = config as FileConfig // Added path...
 
+
             if (!(file instanceof RangeFile)) {
+
 
                 // Native Filesystem
                 if (system.native) {
-                    if (!(file instanceof FileSystemFileHandle)) {
+
+                    if (file.constructor.name !==  'FileSystemFileHandle') { // TODO: Scope this to work with Node.js
 
                     // if(load.native.check(file)){
-                        const pathWithoutName = path.split('/').slice(0, -1).join('/')
 
-                        // TODO: Ensure that this actually works...
-                        const openInfo =  await openSystem(pathWithoutName, {
-                            path: pathWithoutName,
+                        // Get Native File in System
+                        const openInfo =  await openSystem(path, {
+                            path,
                             system, 
-                            create: false,
+                            create: config.create,
                             codecs,
                             debug,
-                            type: 'directory'
                         })
-
-                        if (openInfo && openInfo instanceof FileSystemDirectoryHandle) fileConfig.parent = openInfo
+                        
+                        if (openInfo && openInfo.constructor.name ===  'FileSystemDirectoryHandle') {file = openInfo // Set with native handle
                     }
+                }
+
                 } 
                 
                 // Remote
@@ -52,8 +55,9 @@ export const load = async (file, config: LoadConfigType) => {
 
                 file = new RangeFile(file, fileConfig) //Object.assign({ manager: this, debug: this.debug }, config))
                 await file.init()
-                system.add(file) // Add File in load
             }
+
+            system.add(file) // Add File in load
 
             return file as RangeFile
 }

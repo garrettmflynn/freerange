@@ -27,6 +27,7 @@ export type LoadConfigType = {
     system: System, 
     codecs?: Codecs,
     debug?: boolean,
+    create?:boolean,
 }
 
 // Inherit so Import can be used in Open

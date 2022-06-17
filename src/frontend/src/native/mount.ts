@@ -45,7 +45,10 @@ const onhandle = async (handle, base = '', system: System, progressCallback:Conf
 
 const mountNative = async (handle: FileSystemDirectoryHandle | undefined, config: ConfigType) => {
     if (!handle) handle = await window.showDirectoryPicker();
-    if (config?.system) config.system.name = handle.name // Set root
+    if (config?.system) {
+        config.system.name = config.system.root = handle.name 
+        config.system.native = handle
+    }
     await onhandle(handle, null, config?.system, config?.progress)
     return handle
 }

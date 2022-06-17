@@ -3,7 +3,7 @@ import * as freerange from '../../src/frontend/src/index.js'
 import * as edf from '../../codecs/edf/index.js'
 
 // ------------- Run Button Configuration -------------
-import'./buttons'
+import'./buttons.js'
 
 
 // ------------- Get File Manager -------------
@@ -14,8 +14,6 @@ const options = {
     ignore: ['DS_Store'],
     codecs: { edf }
 }
-
-console.log(navigator.mimeTypes)
 
 const codecs = new freerange.Codecs()
 codecs.encode('Hi there').then(async ab => {
@@ -54,6 +52,11 @@ document.onkeydown = async (e) => {
 const maxArrLen = 50
 editor.preprocess = async (val) => {
     let resolved
+
+    if (typeof val === 'object' && !Array.isArray(val)) {
+        val =  Object.assign({}, val)
+    }
+
     
     for (let key in val){
         if (val[key] instanceof freerange.RangeFile && !val[key].rangeSupported) {
@@ -62,7 +65,9 @@ editor.preprocess = async (val) => {
     }
 
 
-    if (val instanceof freerange.RangeFile) resolved = val.body  // get body
+    if (val instanceof freerange.RangeFile) {
+        resolved = val.body  // get body
+    }
     else resolved = await val 
 
     if (resolved.length > maxArrLen) {
@@ -102,7 +107,7 @@ const progressCallback = (id, ratio, loader) => {
 }
 
 const onMount = async (files) => {
-    console.log('File System', system)
+    console.log('File System', system, files.system)
     const allDirs = Object.keys(files.system).reduce((a,b) => a * b.split('.').length === 1, true)
     if (allDirs) for (let name in files.system) addDataset(name) // List datasets
     else {

@@ -37,5 +37,5 @@ export type RangeConfig = {
     properties: PropertiesType<RangeInfo>,
     // postprocess: Function,
     metadata: (o, config:RangeConfig) => any | Promise<any>
-    preprocess: (bytes: Uint8Array, ...args) => any
+    preprocess: (bytes: ArrayBuffer, ...args) => any
 }

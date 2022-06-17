@@ -9,8 +9,8 @@ const openRemote = async (path, config: RemoteOpenConfig): OpenFileResponse => {
 
     let {
         system, 
-        codecs, 
-        debug
+        // codecs, 
+        // debug
     } = config
 
     return await handleFetch(path).then(async info => {
@@ -21,12 +21,7 @@ const openRemote = async (path, config: RemoteOpenConfig): OpenFileResponse => {
         blob.name = fileName;
 
         const file = createFile(blob, info.url, system)
-        const rangeFile = await load(file, {
-            path: info.url,
-            system,
-            codecs, 
-            debug, 
-        })
+        const rangeFile = await system.load(file, info.url)
 
         return rangeFile
     })

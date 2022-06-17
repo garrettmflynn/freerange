@@ -21,6 +21,7 @@
     "tinybuild": "^0.3.141"
   },
   "dependencies": {
+    "cross-blob": "^3.0.1",
     "idb-keyval": "^6.1.0"
   }
 }

@@ -1,8 +1,11 @@
-import nativeTests from './native'
-import remoteCollectionTest from './remote/arbitrary'
-import remoteRootTest from './remote/root'
-import config from './config'
-import remoteESMTest from './remote/esm'
+import nativeTests from '../tests/browser/native'
+import remoteCollectionTest from '../tests/remote/arbitrary'
+import remoteRootTest from '../tests/remote/root'
+import config from '../tests/config'
+import remoteESMTest from '../tests/remote/esm'
+import LocalSystem from '../../src/frontend/src/LocalSystem'
+
+config.System = LocalSystem
 
 // Basic Buttons
 document.querySelector('#native').onClick = async () => await nativeTests(config)

@@ -12,8 +12,8 @@ export const suffix = (fileName='') => {
     return suffix.join('.')
 }
 
-export const name = (path) => path.split('/').slice(-1)[0]
-export const directory = (path) => path.split('/').slice(0, -1).join('/')
+export const name = (path) => (path) ? path.split('/').slice(-1)[0] : undefined
+export const directory = (path) => (path) ? path.split('/').slice(0, -1).join('/') : undefined
 
 export const esm = (suffix) => (suffix === 'js' || suffix === 'mjs')
 

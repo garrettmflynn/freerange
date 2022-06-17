@@ -3,15 +3,15 @@ import express   from 'express'
 const router   = express.Router();
 // import database  from './db.js'
 
-import FileSystem from '../../../freerange-server/src/FileSystem.js';
+import FileSystem from '../../../src/backend/src/FileSystem.js';
 
 // List Dataset Structure
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-const __dirname = dirname(fileURLToPath(import.meta.url));
+// import { dirname } from 'path';
+// import { fileURLToPath } from 'url';
+// const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = __dirname + '/../datasets'
 
-const files = new FileSystem({ root })
+const files = new FileSystem(root)
 
 router.get("/filesystem", files.list)
 

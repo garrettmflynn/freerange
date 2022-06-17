@@ -1,13 +1,11 @@
 // ------------------ Node.js Code to Host Range-Gettable Remote Datasets ------------------
 // We need to be able to save annotations from multiple people and compare them for agreement! 
 
-
 import express        from 'express'
 import http        from 'http'
 import cors   from 'cors'
 import bodyParser     from 'body-parser'
 import cookieParser   from 'cookie-parser'
-// import path           from 'path'
 
 import config         from '../config.js'
 import defaultroutes  from './routes/default.js'
@@ -33,6 +31,22 @@ console.log(`Started app on port ${port}`);
 
 let size = server.maxHeaderSize;
 console.log('Max HTTP Header size is', size);
+
+
+// ---------------- TESTS ----------------
+// import nativeTests from '../tests/node/native'
+import remoteCollectionTest from '../tests/remote/arbitrary'
+import remoteRootTest from '../tests/remote/root'
+import testConfig from '../tests/config'
+import remoteESMTest from '../tests/remote/esm'
+import FileSystem from '../../src/backend/src/FileSystem'
+testConfig.System = FileSystem
+// Basic Tests
+// await nativeTests(config)
+remoteESMTest(testConfig).then(async () => {
+    await remoteRootTest(testConfig)
+    await remoteCollectionTest(testConfig)
+})
 
 
 export default app;

@@ -6,10 +6,9 @@
     "src/**"
   ],
   "scripts": {
-    "start": "concurrently \"npm run frontend\"",
-    "start-both": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
     "frontend": "tinybuild",
-    "backend": "node --max-http-header-size=16000 example/backend/main.js",
+    "backend": "cd example/backend && tinybuild && node --max-http-header-size=16000 dist/main.node.js",
     "which": "which tinybuild"
   },
   "devDependencies": {

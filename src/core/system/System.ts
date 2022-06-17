@@ -1,4 +1,4 @@
-import { AnyObj, GroupType, PathType } from '../types'
+import { AnyObj, GroupType, PathType, CodecCollection } from '../types'
 import { SystemInfo, Group, ConditionType } from '../types/system'
 import { ProgressCallbackType } from '../types/config'
 
@@ -25,6 +25,8 @@ export default class System {
     root: string
 
     writable: boolean
+    dependencies:  {[x:string]: Map<PathType, RangeFile>} = {}
+    dependents:  {[x:string]: Map<PathType, RangeFile>} =  {}
 
     changelog: RangeFile[] = []
     native: SystemInfo['native']
@@ -58,10 +60,9 @@ export default class System {
         this.native = systemInfo.native
         this.debug = systemInfo.debug
         this.ignore = systemInfo.ignore ?? []
-
         this.writable = systemInfo.writable
         this.progress = systemInfo.progress
-        this.codecs = new Codecs(Object.assign(codecs, systemInfo.codecs)) // Provide all codecs
+        this.codecs = new Codecs([codecs, systemInfo.codecs]) // Provide all codecs
 
                 // -------------- Default Groupings --------------
         // file system
@@ -102,17 +103,11 @@ export default class System {
             progress: this.progress
         }
 
-        // -------------- Default to Mount Native --------------
+        // -------------- Set Native Info (default) --------------
         if (this.isNative(this.name)){
-            const native = await this.mountNative(this.name, mountConfig)
-            if (native){
-                this.native = native
-                this.name = this.native.name
-            } else console.error('Unable to mount native filesystem!')
+            const native = await this.mountNative(this.name, mountConfig)  // this.native set internally
+            if (!native) console.error('Unable to mount native filesystem!')
         }
-
-        // -------------- Set Native Info --------------
-        if (this.native) this.root = this.name 
 
         // -------------- Set Remote Info --------------
         else {
@@ -134,10 +129,7 @@ export default class System {
 
                 // Case #2: Freerange System
                 else {
-
-                    const root = await this.mountRemote(this.name, mountConfig).catch((e) => console.warn('System initialization failed.', e))
-
-                    if (root) this.root = root
+                    await this.mountRemote(this.name, mountConfig).catch((e) => console.warn('System initialization failed.', e)) // this root set internally
                 }
             }
 
@@ -160,7 +152,6 @@ export default class System {
     }
 
     subsystem = async (path) => {
-        const files = this.createFileSystemInfo()
         const split = path.split('/')
         const name = split[split.length - 1]
         const subDir = split.shift()
@@ -169,20 +160,28 @@ export default class System {
         let target = this.files.system[subDir]
         split.forEach(str => target = target[str])
 
-        const system = new System(name)
+        const systemConstructor = this.constructor as any
+        const system = new systemConstructor(name, {
+            native: this.native,
+            debug: this.debug,
+            ignore: this.ignore,
+            writable: this.writable,
+            progress: this.progress,
+            codecs: this.codecs,
+        })
         await system.init()
 
         let drill = async (target, base) => {
             for (let key in target) {
-                const newBase = (base) ? base + '/' + key : key
+                const newBase = pathUtils.get(key, base)
                 const file = target[key]
-                if (file instanceof RangeFile) await system.load(file, newBase)
+                if (file instanceof RangeFile) await system.load(file, pathUtils.get(key, base))
                 else await drill(file, newBase)
             }
         }
 
         await drill(target, path)
-        return files
+        return system
     }
 
     reset = () => {
@@ -204,7 +203,7 @@ export default class System {
         return this.ignore.reduce((a, b) => a * (name?.includes(b) ? 0 : 1), 1)
     }
 
-    load = async (file, path: PathType) => {
+    load = async (file, path: PathType, dependent?: string) => {
 
         const existingFile = this.files.list.get(path)
         if (existingFile) return existingFile
@@ -219,25 +218,35 @@ export default class System {
             if (toLoad) {
             
                 // Use Library Load Function
-                return await load(file, {
+                const rangeFile = await load(file, {
                     path,
                     system: this,
                     debug: this.debug,
-                    codecs: this.codecs
-                })            
+                    codecs: this.codecs,
+                    create: this.writable
+                })  
+                
+                // Track Dependencies
+                if (dependent){
+                    if (!this.dependencies[dependent]) this.dependencies[dependent] = new Map()
+                    this.dependencies[dependent].set(rangeFile.path, rangeFile)
+                    if (!this.dependents[rangeFile.path]) this.dependents[rangeFile.path] = new Map()
+                    const file = this.files.list.get(dependent)
+                    this.dependents[rangeFile.path].set(file.path, file)
+                } 
+
+                return rangeFile
+
             } else console.warn(`Ignoring ${file.name}`)
         }
     }
 
     add = (file: RangeFile) => {
          
-        // Add file to changelog
-        // if (!(file.method === 'remote') && !(file instanceof FileSystemFileHandle)) this.changelog.push(file)
-
         // // Overwrite Existing Files
         if (!this.files.list.has(file.path)) {
-            //     console.warn(`Overwriting existing ${file.path} file`); // TODO: Overwrite all other entries too...
-            //     this.files.list.delete(file.path);
+            // console.warn(`Overwriting existing ${file.path} file`); // TODO: Overwrite all other entries too...
+            // this.files.list.delete(file.path);
 
             // Add File to Groups
             this.groupConditions.forEach(func => func(file, file.path, this.files))
@@ -260,7 +269,9 @@ mountRemote: MountMethod<RemoteMountResponse>  = mountRemote
 open = async (path, create?:boolean) => {
     if (!this.native) path = pathUtils.get(path, this.root) // Append root on remote
 
-    return await open(path, { 
+
+    // Loads internally
+    const rangeFile = await open(path, { 
         path,
         debug: this.debug, 
         system: this,
@@ -268,13 +279,15 @@ open = async (path, create?:boolean) => {
         codecs: this.codecs,
         // registry: this.registry
     })
+
+    return rangeFile
 }
 
 // ------------ Core Save Method ------------
-save = async (force, progress:ProgressCallbackType = this.progress) => await save(this.name, Array.from(this.files.list.values()), force, progress)
+save = async (force, progress:ProgressCallbackType = this.progress) => await save(this.name, Array.from(this.files.list.values()), force, progress) // Save files with dependencies
 
 // ------------ RangeFile Sync Method ------------
-sync = async () => await iterAsync(Array.from(this.files.list.values()), async entry => await entry.sync())
+sync = async () => await iterAsync(this.files.list.values(), async entry => await entry.sync())
 
 // ------------ Core Transfer Method ------------
 transfer = async (target:System) => await transfer(this, target)

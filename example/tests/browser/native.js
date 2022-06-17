@@ -1,11 +1,9 @@
-import * as freerange from '../../../src/frontend/src/index'
-import * as print from './utils/print'
-import { System } from '../../../src/frontend/src/index'
+import * as print from '../utils/print'
 
 const nativeTests = async (config) => {
 
     console.log('------------------ NATIVE TESTS ------------------')
-    const localSystem = new System()
+    const localSystem = new config.System()
     await localSystem.init()
     console.log('Filesystem Started!', localSystem)
 

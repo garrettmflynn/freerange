@@ -50,13 +50,20 @@ const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) =
             // Check If Already Exists
             let correctPath = pathUtils.get(path, childBase)
             const variables = importInfo[path];
+            const existingFile = config.system.files.list.get(pathUtils.get(path))
+            let blob = existingFile?.file
 
-            let blob;
+            // Or Fetch From Remote
+            if (!blob){
                 const info = await handleFetch(correctPath)
                 blob = new Blob([info.buffer], {type: info.type}) as BlobFile
-                await config.system.load(blob, correctPath)  // load into system               
+                await config.system.load(blob, correctPath, config.path)  // load into system       
+            }        
 
-                const imported = await safeESMImport(await blob.text(), {
+                let thisText = await blob.text()
+
+
+                const imported = await safeESMImport(thisText, {
                     path: correctPath,
                     system: config.system
                 }, onBlob);

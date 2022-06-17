@@ -7,6 +7,23 @@ import { pipeline, Readable } from "stream";
 import System from 'src/core/system/System';
 const fileInfo = promisify(stat);
 
+
+// Node Polyfills
+globalThis.FREERANGE_NODE = false
+try {
+    if(typeof process === 'object') { //indicates node
+        globalThis.FREERANGE_NODE = true
+        const fetch = require('node-fetch').default
+        if (typeof globalThis.fetch !== 'function') globalThis.fetch = fetch
+
+        const Blob = require('cross-blob').default
+        globalThis.Blob = Blob
+
+        if (typeof globalThis.Blob !== 'function') globalThis.Blob = Blob
+
+    }
+} catch (err) {}
+
 export default class FileSystem extends System {
 
   ['404']: types.BackendSystemInfo['404']

@@ -6,16 +6,16 @@ import encode from './encode'
 export default class Codecs {
 
     suffixToType: RegistryType = {};
-    collection: CodecMap;
+    collection: CodecMap = new Map()
 
-    constructor (codecs:Codecs | CodecCollection = {}) {
-        if (codecs instanceof Codecs) this.collection = codecs.collection
-        else {
-            this.collection = new Map()
-            for (let key in codecs) this.add(codecs[key]) // Add to Codecs
-        }
+    constructor (codecsInput:Codecs | CodecCollection | (Codecs | CodecCollection)[] ) {
+        if (!Array.isArray(codecsInput)) codecsInput = [codecsInput]
+
+        codecsInput.forEach((codecs) => {
+            if (codecs instanceof Codecs) codecs.collection.forEach(this.add)
+            else for (let key in codecs) this.add(codecs[key]) // Add to Codecs
+        })
     }
-
 
     add = (codec: Codec) => {
         this.collection.set(codec.type, codec)
@@ -31,4 +31,10 @@ export default class Codecs {
 
     decode = (o, type:MimeType, name?:string, config?: FileConfig) => decode(o, type, name, config, undefined, this)
     encode = (o, type:MimeType, name?:string, config?: FileConfig) => encode(o, type, name, config, undefined, this)
+
+
+    // Notify user if the specified file has dependencies
+    hasDependencies = (file) => {
+        return (file.mimeType === 'application/javascript')
+    }
 }
