@@ -15,6 +15,17 @@ const options = {
     codecs: { edf }
 }
 
+// freerange.getCache().then(arr => {
+
+//     window.onmousedown = async () => {
+//         system = new freerange.System(arr[0], options)
+//         system.progress = globalProgressCallback
+//         await system.init()
+//         onMount(system.files)
+//     }
+// })
+
+
 const codecs = new freerange.Codecs()
 codecs.encode('Hi there').then(async ab => {
     const text = await codecs.decode(ab)

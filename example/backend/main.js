@@ -44,8 +44,13 @@ testConfig.System = FileSystem
 // Basic Tests
 // await nativeTests(config)
 remoteESMTest(testConfig).then(async () => {
-    await remoteRootTest(testConfig)
-    await remoteCollectionTest(testConfig)
+    try {
+        await remoteRootTest(testConfig)
+    } catch (e) {console.error('Remote Root Error', e)}
+
+    try {
+        await remoteCollectionTest(testConfig)
+    } catch (e) {console.error('Remote Collection Error', e)}
 })
 
 

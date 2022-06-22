@@ -1,585 +1,14 @@
 (() => {
-  var __create = Object.create;
   var __defProp = Object.defineProperty;
-  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-  var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __getProtoOf = Object.getPrototypeOf;
-  var __hasOwnProp = Object.prototype.hasOwnProperty;
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
-    get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
-  }) : x)(function(x) {
-    if (typeof require !== "undefined")
-      return require.apply(this, arguments);
-    throw new Error('Dynamic require of "' + x + '" is not supported');
-  });
-  var __esm = (fn, res) => function __init() {
-    return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-  };
-  var __commonJS = (cb, mod) => function __require2() {
-    return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-  };
   var __export = (target, all) => {
     for (var name2 in all)
       __defProp(target, name2, { get: all[name2], enumerable: true });
   };
-  var __copyProps = (to, from, except, desc) => {
-    if (from && typeof from === "object" || typeof from === "function") {
-      for (let key of __getOwnPropNames(from))
-        if (!__hasOwnProp.call(to, key) && key !== except)
-          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-    }
-    return to;
-  };
-  var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target, mod));
-  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
   var __publicField = (obj, key, value) => {
     __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
     return value;
   };
-
-  // node_modules/blob-polyfill/Blob.js
-  var require_Blob = __commonJS({
-    "node_modules/blob-polyfill/Blob.js"(exports) {
-      (function(global2) {
-        (function(factory) {
-          if (typeof define === "function" && define.amd) {
-            define(["exports"], factory);
-          } else if (typeof exports === "object" && typeof exports.nodeName !== "string") {
-            factory(exports);
-          } else {
-            factory(global2);
-          }
-        })(function(exports2) {
-          "use strict";
-          var BlobBuilder = global2.BlobBuilder || global2.WebKitBlobBuilder || global2.MSBlobBuilder || global2.MozBlobBuilder;
-          var URL2 = global2.URL || global2.webkitURL || function(href, a) {
-            a = document.createElement("a");
-            a.href = href;
-            return a;
-          };
-          var origBlob = global2.Blob;
-          var createObjectURL = URL2.createObjectURL;
-          var revokeObjectURL = URL2.revokeObjectURL;
-          var strTag = global2.Symbol && global2.Symbol.toStringTag;
-          var blobSupported = false;
-          var blobSupportsArrayBufferView = false;
-          var blobBuilderSupported = BlobBuilder && BlobBuilder.prototype.append && BlobBuilder.prototype.getBlob;
-          try {
-            blobSupported = new Blob(["\xE4"]).size === 2;
-            blobSupportsArrayBufferView = new Blob([new Uint8Array([1, 2])]).size === 2;
-          } catch (e) {
-          }
-          function mapArrayBufferViews(ary) {
-            return ary.map(function(chunk) {
-              if (chunk.buffer instanceof ArrayBuffer) {
-                var buf = chunk.buffer;
-                if (chunk.byteLength !== buf.byteLength) {
-                  var copy = new Uint8Array(chunk.byteLength);
-                  copy.set(new Uint8Array(buf, chunk.byteOffset, chunk.byteLength));
-                  buf = copy.buffer;
-                }
-                return buf;
-              }
-              return chunk;
-            });
-          }
-          function BlobBuilderConstructor(ary, options2) {
-            options2 = options2 || {};
-            var bb = new BlobBuilder();
-            mapArrayBufferViews(ary).forEach(function(part) {
-              bb.append(part);
-            });
-            return options2.type ? bb.getBlob(options2.type) : bb.getBlob();
-          }
-          function BlobConstructor(ary, options2) {
-            return new origBlob(mapArrayBufferViews(ary), options2 || {});
-          }
-          if (global2.Blob) {
-            BlobBuilderConstructor.prototype = Blob.prototype;
-            BlobConstructor.prototype = Blob.prototype;
-          }
-          function stringEncode(string) {
-            var pos = 0;
-            var len = string.length;
-            var Arr = global2.Uint8Array || Array;
-            var at = 0;
-            var tlen = Math.max(32, len + (len >> 1) + 7);
-            var target = new Arr(tlen >> 3 << 3);
-            while (pos < len) {
-              var value = string.charCodeAt(pos++);
-              if (value >= 55296 && value <= 56319) {
-                if (pos < len) {
-                  var extra = string.charCodeAt(pos);
-                  if ((extra & 64512) === 56320) {
-                    ++pos;
-                    value = ((value & 1023) << 10) + (extra & 1023) + 65536;
-                  }
-                }
-                if (value >= 55296 && value <= 56319) {
-                  continue;
-                }
-              }
-              if (at + 4 > target.length) {
-                tlen += 8;
-                tlen *= 1 + pos / string.length * 2;
-                tlen = tlen >> 3 << 3;
-                var update = new Uint8Array(tlen);
-                update.set(target);
-                target = update;
-              }
-              if ((value & 4294967168) === 0) {
-                target[at++] = value;
-                continue;
-              } else if ((value & 4294965248) === 0) {
-                target[at++] = value >> 6 & 31 | 192;
-              } else if ((value & 4294901760) === 0) {
-                target[at++] = value >> 12 & 15 | 224;
-                target[at++] = value >> 6 & 63 | 128;
-              } else if ((value & 4292870144) === 0) {
-                target[at++] = value >> 18 & 7 | 240;
-                target[at++] = value >> 12 & 63 | 128;
-                target[at++] = value >> 6 & 63 | 128;
-              } else {
-                continue;
-              }
-              target[at++] = value & 63 | 128;
-            }
-            return target.slice(0, at);
-          }
-          function stringDecode(buf) {
-            var end = buf.length;
-            var res = [];
-            var i = 0;
-            while (i < end) {
-              var firstByte = buf[i];
-              var codePoint = null;
-              var bytesPerSequence = firstByte > 239 ? 4 : firstByte > 223 ? 3 : firstByte > 191 ? 2 : 1;
-              if (i + bytesPerSequence <= end) {
-                var secondByte, thirdByte, fourthByte, tempCodePoint;
-                switch (bytesPerSequence) {
-                  case 1:
-                    if (firstByte < 128) {
-                      codePoint = firstByte;
-                    }
-                    break;
-                  case 2:
-                    secondByte = buf[i + 1];
-                    if ((secondByte & 192) === 128) {
-                      tempCodePoint = (firstByte & 31) << 6 | secondByte & 63;
-                      if (tempCodePoint > 127) {
-                        codePoint = tempCodePoint;
-                      }
-                    }
-                    break;
-                  case 3:
-                    secondByte = buf[i + 1];
-                    thirdByte = buf[i + 2];
-                    if ((secondByte & 192) === 128 && (thirdByte & 192) === 128) {
-                      tempCodePoint = (firstByte & 15) << 12 | (secondByte & 63) << 6 | thirdByte & 63;
-                      if (tempCodePoint > 2047 && (tempCodePoint < 55296 || tempCodePoint > 57343)) {
-                        codePoint = tempCodePoint;
-                      }
-                    }
-                    break;
-                  case 4:
-                    secondByte = buf[i + 1];
-                    thirdByte = buf[i + 2];
-                    fourthByte = buf[i + 3];
-                    if ((secondByte & 192) === 128 && (thirdByte & 192) === 128 && (fourthByte & 192) === 128) {
-                      tempCodePoint = (firstByte & 15) << 18 | (secondByte & 63) << 12 | (thirdByte & 63) << 6 | fourthByte & 63;
-                      if (tempCodePoint > 65535 && tempCodePoint < 1114112) {
-                        codePoint = tempCodePoint;
-                      }
-                    }
-                }
-              }
-              if (codePoint === null) {
-                codePoint = 65533;
-                bytesPerSequence = 1;
-              } else if (codePoint > 65535) {
-                codePoint -= 65536;
-                res.push(codePoint >>> 10 & 1023 | 55296);
-                codePoint = 56320 | codePoint & 1023;
-              }
-              res.push(codePoint);
-              i += bytesPerSequence;
-            }
-            var len = res.length;
-            var str = "";
-            var j = 0;
-            while (j < len) {
-              str += String.fromCharCode.apply(String, res.slice(j, j += 4096));
-            }
-            return str;
-          }
-          var textEncode = typeof TextEncoder === "function" ? TextEncoder.prototype.encode.bind(new TextEncoder()) : stringEncode;
-          var textDecode = typeof TextDecoder === "function" ? TextDecoder.prototype.decode.bind(new TextDecoder()) : stringDecode;
-          function FakeBlobBuilder() {
-            function bufferClone(buf) {
-              var view = new Array(buf.byteLength);
-              var array = new Uint8Array(buf);
-              var i = view.length;
-              while (i--) {
-                view[i] = array[i];
-              }
-              return view;
-            }
-            function array2base64(input) {
-              var byteToCharMap = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
-              var output = [];
-              for (var i = 0; i < input.length; i += 3) {
-                var byte1 = input[i];
-                var haveByte2 = i + 1 < input.length;
-                var byte2 = haveByte2 ? input[i + 1] : 0;
-                var haveByte3 = i + 2 < input.length;
-                var byte3 = haveByte3 ? input[i + 2] : 0;
-                var outByte1 = byte1 >> 2;
-                var outByte2 = (byte1 & 3) << 4 | byte2 >> 4;
-                var outByte3 = (byte2 & 15) << 2 | byte3 >> 6;
-                var outByte4 = byte3 & 63;
-                if (!haveByte3) {
-                  outByte4 = 64;
-                  if (!haveByte2) {
-                    outByte3 = 64;
-                  }
-                }
-                output.push(byteToCharMap[outByte1], byteToCharMap[outByte2], byteToCharMap[outByte3], byteToCharMap[outByte4]);
-              }
-              return output.join("");
-            }
-            var create = Object.create || function(a) {
-              function c() {
-              }
-              c.prototype = a;
-              return new c();
-            };
-            function getObjectTypeName(o) {
-              return Object.prototype.toString.call(o).slice(8, -1);
-            }
-            function isPrototypeOf(c, o) {
-              return typeof c === "object" && Object.prototype.isPrototypeOf.call(c.prototype, o);
-            }
-            function isDataView(o) {
-              return getObjectTypeName(o) === "DataView" || isPrototypeOf(global2.DataView, o);
-            }
-            var arrayBufferClassNames = [
-              "Int8Array",
-              "Uint8Array",
-              "Uint8ClampedArray",
-              "Int16Array",
-              "Uint16Array",
-              "Int32Array",
-              "Uint32Array",
-              "Float32Array",
-              "Float64Array",
-              "ArrayBuffer"
-            ];
-            function includes(a, v) {
-              return a.indexOf(v) !== -1;
-            }
-            function isArrayBuffer(o) {
-              return includes(arrayBufferClassNames, getObjectTypeName(o)) || isPrototypeOf(global2.ArrayBuffer, o);
-            }
-            function concatTypedarrays(chunks) {
-              var size = 0;
-              var j = chunks.length;
-              while (j--) {
-                size += chunks[j].length;
-              }
-              var b = new Uint8Array(size);
-              var offset = 0;
-              for (var i = 0; i < chunks.length; i++) {
-                var chunk = chunks[i];
-                b.set(chunk, offset);
-                offset += chunk.byteLength || chunk.length;
-              }
-              return b;
-            }
-            function Blob3(chunks, opts) {
-              chunks = chunks || [];
-              opts = opts == null ? {} : opts;
-              for (var i = 0, len = chunks.length; i < len; i++) {
-                var chunk = chunks[i];
-                if (chunk instanceof Blob3) {
-                  chunks[i] = chunk._buffer;
-                } else if (typeof chunk === "string") {
-                  chunks[i] = textEncode(chunk);
-                } else if (isDataView(chunk)) {
-                  chunks[i] = bufferClone(chunk.buffer);
-                } else if (isArrayBuffer(chunk)) {
-                  chunks[i] = bufferClone(chunk);
-                } else {
-                  chunks[i] = textEncode(String(chunk));
-                }
-              }
-              this._buffer = global2.Uint8Array ? concatTypedarrays(chunks) : [].concat.apply([], chunks);
-              this.size = this._buffer.length;
-              this.type = opts.type || "";
-              if (/[^\u0020-\u007E]/.test(this.type)) {
-                this.type = "";
-              } else {
-                this.type = this.type.toLowerCase();
-              }
-            }
-            Blob3.prototype.arrayBuffer = function() {
-              return Promise.resolve(this._buffer.buffer || this._buffer);
-            };
-            Blob3.prototype.text = function() {
-              return Promise.resolve(textDecode(this._buffer));
-            };
-            Blob3.prototype.slice = function(start, end, type8) {
-              var slice = this._buffer.slice(start || 0, end || this._buffer.length);
-              return new Blob3([slice], { type: type8 });
-            };
-            Blob3.prototype.toString = function() {
-              return "[object Blob]";
-            };
-            function File2(chunks, name2, opts) {
-              opts = opts || {};
-              var a = Blob3.call(this, chunks, opts) || this;
-              a.name = name2.replace(/\//g, ":");
-              a.lastModifiedDate = opts.lastModified ? new Date(opts.lastModified) : new Date();
-              a.lastModified = +a.lastModifiedDate;
-              return a;
-            }
-            File2.prototype = create(Blob3.prototype);
-            File2.prototype.constructor = File2;
-            if (Object.setPrototypeOf) {
-              Object.setPrototypeOf(File2, Blob3);
-            } else {
-              try {
-                File2.__proto__ = Blob3;
-              } catch (e) {
-              }
-            }
-            File2.prototype.toString = function() {
-              return "[object File]";
-            };
-            function FileReader2() {
-              if (!(this instanceof FileReader2)) {
-                throw new TypeError("Failed to construct 'FileReader': Please use the 'new' operator, this DOM object constructor cannot be called as a function.");
-              }
-              var delegate = document.createDocumentFragment();
-              this.addEventListener = delegate.addEventListener;
-              this.dispatchEvent = function(evt) {
-                var local = this["on" + evt.type];
-                if (typeof local === "function")
-                  local(evt);
-                delegate.dispatchEvent(evt);
-              };
-              this.removeEventListener = delegate.removeEventListener;
-            }
-            function _read(fr, blob2, kind) {
-              if (!(blob2 instanceof Blob3)) {
-                throw new TypeError("Failed to execute '" + kind + "' on 'FileReader': parameter 1 is not of type 'Blob'.");
-              }
-              fr.result = "";
-              setTimeout(function() {
-                this.readyState = FileReader2.LOADING;
-                fr.dispatchEvent(new Event("load"));
-                fr.dispatchEvent(new Event("loadend"));
-              });
-            }
-            FileReader2.EMPTY = 0;
-            FileReader2.LOADING = 1;
-            FileReader2.DONE = 2;
-            FileReader2.prototype.error = null;
-            FileReader2.prototype.onabort = null;
-            FileReader2.prototype.onerror = null;
-            FileReader2.prototype.onload = null;
-            FileReader2.prototype.onloadend = null;
-            FileReader2.prototype.onloadstart = null;
-            FileReader2.prototype.onprogress = null;
-            FileReader2.prototype.readAsDataURL = function(blob2) {
-              _read(this, blob2, "readAsDataURL");
-              this.result = "data:" + blob2.type + ";base64," + array2base64(blob2._buffer);
-            };
-            FileReader2.prototype.readAsText = function(blob2) {
-              _read(this, blob2, "readAsText");
-              this.result = textDecode(blob2._buffer);
-            };
-            FileReader2.prototype.readAsArrayBuffer = function(blob2) {
-              _read(this, blob2, "readAsText");
-              this.result = (blob2._buffer.buffer || blob2._buffer).slice();
-            };
-            FileReader2.prototype.abort = function() {
-            };
-            URL2.createObjectURL = function(blob2) {
-              return blob2 instanceof Blob3 ? "data:" + blob2.type + ";base64," + array2base64(blob2._buffer) : createObjectURL.call(URL2, blob2);
-            };
-            URL2.revokeObjectURL = function(url) {
-              revokeObjectURL && revokeObjectURL.call(URL2, url);
-            };
-            var _send = global2.XMLHttpRequest && global2.XMLHttpRequest.prototype.send;
-            if (_send) {
-              XMLHttpRequest.prototype.send = function(data) {
-                if (data instanceof Blob3) {
-                  this.setRequestHeader("Content-Type", data.type);
-                  _send.call(this, textDecode(data._buffer));
-                } else {
-                  _send.call(this, data);
-                }
-              };
-            }
-            exports2.Blob = Blob3;
-            exports2.File = File2;
-            exports2.FileReader = FileReader2;
-            exports2.URL = URL2;
-          }
-          function fixFileAndXHR() {
-            var isIE = !!global2.ActiveXObject || "-ms-scroll-limit" in document.documentElement.style && "-ms-ime-align" in document.documentElement.style;
-            var _send = global2.XMLHttpRequest && global2.XMLHttpRequest.prototype.send;
-            if (isIE && _send) {
-              XMLHttpRequest.prototype.send = function(data) {
-                if (data instanceof Blob) {
-                  this.setRequestHeader("Content-Type", data.type);
-                  _send.call(this, data);
-                } else {
-                  _send.call(this, data);
-                }
-              };
-            }
-            try {
-              new File([], "");
-              exports2.File = global2.File;
-              exports2.FileReader = global2.FileReader;
-            } catch (e) {
-              try {
-                exports2.File = new Function('class File extends Blob {constructor(chunks, name, opts) {opts = opts || {};super(chunks, opts || {});this.name = name.replace(/\\//g, ":");this.lastModifiedDate = opts.lastModified ? new Date(opts.lastModified) : new Date();this.lastModified = +this.lastModifiedDate;}};return new File([], ""), File')();
-              } catch (e2) {
-                exports2.File = function(b, d, c) {
-                  var blob2 = new Blob(b, c);
-                  var t = c && c.lastModified !== void 0 ? new Date(c.lastModified) : new Date();
-                  blob2.name = d.replace(/\//g, ":");
-                  blob2.lastModifiedDate = t;
-                  blob2.lastModified = +t;
-                  blob2.toString = function() {
-                    return "[object File]";
-                  };
-                  if (strTag) {
-                    blob2[strTag] = "File";
-                  }
-                  return blob2;
-                };
-              }
-            }
-          }
-          if (blobSupported) {
-            fixFileAndXHR();
-            exports2.Blob = blobSupportsArrayBufferView ? global2.Blob : BlobConstructor;
-          } else if (blobBuilderSupported) {
-            fixFileAndXHR();
-            exports2.Blob = BlobBuilderConstructor;
-          } else {
-            FakeBlobBuilder();
-          }
-          if (strTag) {
-            if (!exports2.File.prototype[strTag])
-              exports2.File.prototype[strTag] = "File";
-            if (!exports2.Blob.prototype[strTag])
-              exports2.Blob.prototype[strTag] = "Blob";
-            if (!exports2.FileReader.prototype[strTag])
-              exports2.FileReader.prototype[strTag] = "FileReader";
-          }
-          var blob = exports2.Blob.prototype;
-          var stream;
-          try {
-            new ReadableStream({ type: "bytes" });
-            stream = function stream2() {
-              var position = 0;
-              var blob2 = this;
-              return new ReadableStream({
-                type: "bytes",
-                autoAllocateChunkSize: 524288,
-                pull: function(controller) {
-                  var v = controller.byobRequest.view;
-                  var chunk = blob2.slice(position, position + v.byteLength);
-                  return chunk.arrayBuffer().then(function(buffer) {
-                    var uint8array = new Uint8Array(buffer);
-                    var bytesRead = uint8array.byteLength;
-                    position += bytesRead;
-                    v.set(uint8array);
-                    controller.byobRequest.respond(bytesRead);
-                    if (position >= blob2.size)
-                      controller.close();
-                  });
-                }
-              });
-            };
-          } catch (e) {
-            try {
-              new ReadableStream({});
-              stream = function stream2(blob2) {
-                var position = 0;
-                return new ReadableStream({
-                  pull: function(controller) {
-                    var chunk = blob2.slice(position, position + 524288);
-                    return chunk.arrayBuffer().then(function(buffer) {
-                      position += buffer.byteLength;
-                      var uint8array = new Uint8Array(buffer);
-                      controller.enqueue(uint8array);
-                      if (position == blob2.size)
-                        controller.close();
-                    });
-                  }
-                });
-              };
-            } catch (e2) {
-              try {
-                new Response("").body.getReader().read();
-                stream = function stream2() {
-                  return new Response(this).body;
-                };
-              } catch (e3) {
-                stream = function stream2() {
-                  throw new Error("Include https://github.com/MattiasBuelens/web-streams-polyfill");
-                };
-              }
-            }
-          }
-          function promisify(obj) {
-            return new Promise(function(resolve, reject) {
-              obj.onload = obj.onerror = function(evt) {
-                obj.onload = obj.onerror = null;
-                evt.type === "load" ? resolve(obj.result || obj) : reject(new Error("Failed to read the blob/file"));
-              };
-            });
-          }
-          if (!blob.arrayBuffer) {
-            blob.arrayBuffer = function arrayBuffer() {
-              var fr = new FileReader();
-              fr.readAsArrayBuffer(this);
-              return promisify(fr);
-            };
-          }
-          if (!blob.text) {
-            blob.text = function text() {
-              var fr = new FileReader();
-              fr.readAsText(this);
-              return promisify(fr);
-            };
-          }
-          if (!blob.stream) {
-            blob.stream = stream;
-          }
-        });
-      })(typeof self !== "undefined" && self || typeof window !== "undefined" && window || typeof global !== "undefined" && global || exports);
-    }
-  });
-
-  // node_modules/cross-blob/browser.js
-  var browser_exports = {};
-  __export(browser_exports, {
-    default: () => browser_default
-  });
-  var import_blob_polyfill, browser_default;
-  var init_browser = __esm({
-    "node_modules/cross-blob/browser.js"() {
-      import_blob_polyfill = __toESM(require_Blob(), 1);
-      browser_default = import_blob_polyfill.Blob;
-    }
-  });
 
   // example/config.js
   var config_default = {
@@ -4674,8 +4103,10 @@
     const blob = new Blob([f.storage.buffer]);
     blob.name = f.name;
     const newFile = await system3.load(blob, path);
-    if (!f.fileSystemHandle)
+    if (!f.fileSystemHandle) {
       f.fileSystemHandle = newFile.fileSystemHandle;
+      f.method = "transferred";
+    }
   };
   var transfer = async (previousSystem, targetSystem, transferList) => {
     if (!targetSystem) {
@@ -4692,8 +4123,11 @@
     }
     if (!transferList)
       transferList = Array.from(previousSystem.files.list.values());
+    console.warn(`Starting transfer of ${transferList.length} files from ${previousSystem.name} to ${targetSystem.name}`);
+    const tic = performance.now();
     await Promise.all(transferList.map(async (f) => transferEach(f, targetSystem)));
-    await Promise.all(transferList.map(async (f) => await f.save()));
+    const toc = performance.now();
+    console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
   };
   var transfer_default = transfer;
 
@@ -4810,6 +4244,19 @@
     return response;
   }
 
+  // src/core/utils/iterate.ts
+  var iterAsync = async (iterable, asyncCallback) => {
+    const promises = [];
+    let i = 0;
+    for await (const entry of iterable) {
+      promises.push(asyncCallback(entry, i));
+      i++;
+    }
+    const arr = await Promise.all(promises);
+    return arr;
+  };
+  var iterate_default = iterAsync;
+
   // src/core/RangeFile.ts
   var useRawArrayBuffer = ["nii", "nwb"];
   var RangeFile = class {
@@ -4896,12 +4343,10 @@
         try {
           if (!this[`#${ref}`]) {
             const ticDecode = performance.now();
-            const storageExists = Object.keys(this.storage).length > 0;
+            const storageExists = this.storage.buffer;
             if (!storageExists && !this.rangeSupported)
               this.storage = await this.getFileData();
-            console.log("Got Boffer", this.storage.buffer);
             this[`#${ref}`] = codec ? await codec.decode(this.storage, this.config) : await this.system.codecs.decode(this.storage, this.mimeType, this.file.name, this.config).catch(this.onError);
-            console.log("Got Value", this[`#${ref}`]);
             const tocDecode = performance.now();
             if (this.debug)
               console.warn(`Time to Decode (${this.path}): ${tocDecode - ticDecode}ms`);
@@ -4929,12 +4374,10 @@
             const toEncode = value ?? "";
             try {
               const ticEncode = performance.now();
-              console.log("To Encode", toEncode, this["#body"]);
               const buffer = codec ? await codec.encode(toEncode, this.config) : await this.system.codecs.encode(toEncode, this.mimeType, this.file.name, this.config);
               const tocEncode = performance.now();
               if (this.debug)
                 console.warn(`Time to Encode (${this.path}): ${tocEncode - ticEncode}ms`);
-              console.log("ReEncoded", buffer);
               return buffer;
             } catch (e) {
               console.error("Could not encode as a buffer", toEncode, this.mimeType, this.zipped, codec);
@@ -4958,7 +4401,6 @@
             if (toSave)
               this.storage.buffer = toSave;
             const newFile = await this.createFile(this.storage.buffer, this.file, create);
-            console.log("Created new file", newFile, this.storage.buffer);
             if (newFile)
               this.file = newFile;
             else {
@@ -4966,10 +4408,11 @@
                 console.warn(`New file not created for ${this.path}`);
               return;
             }
-            if (textEncoded) {
-              this["#body"] = null;
-              await this.body;
-              await this.text;
+            if (toSave) {
+              if (textEncoded)
+                this["#body"] = null;
+              if (bodyEncoded)
+                this["#text"] = null;
             } else {
               await this.setOriginal();
               await this.setOriginal("text");
@@ -4981,17 +4424,18 @@
       };
       this.save = async (force = !!this.remote) => {
         const file3 = await this.sync(force, true);
-        console.log("Saving", file3);
         if (file3 instanceof Blob) {
-          console.log("Text", file3.name, await file3.text());
           const writable = await this.fileSystemHandle.createWritable();
           const stream = file3.stream();
           const tic = performance.now();
           await stream.pipeTo(writable);
           const toc = performance.now();
           if (this.debug)
-            console.warn(`Time to stream into file (${this.path}): ${toc - tic}ms`, this.storage.buffer, this.file, this);
+            console.warn(`Time to stream into file (${this.path}): ${toc - tic}ms`);
         }
+        const dependents = this.system.dependents[this.path];
+        if (dependents)
+          await iterate_default(dependents.values(), async (f) => f["#body"] = null);
       };
       this.onError = (e) => {
         console.error(e);
@@ -5352,11 +4796,15 @@
       for (let path in importInfo) {
         let correctPath = get2(path, childBase);
         const variables = importInfo[path];
-        let blob;
-        const info = await handleFetch(correctPath);
-        blob = new Blob([info.buffer], { type: info.type });
-        await config2.system.load(blob, correctPath);
-        const imported = await safeESMImport(await blob.text(), {
+        const existingFile = config2.system.files.list.get(get2(path));
+        let blob = existingFile?.file;
+        if (!blob) {
+          const info = await handleFetch(correctPath);
+          blob = new Blob([info.buffer], { type: info.type });
+          await config2.system.load(blob, correctPath, config2.path);
+        }
+        let thisText = await blob.text();
+        const imported = await safeESMImport(thisText, {
           path: correctPath,
           system: config2.system
         }, onBlob);
@@ -5379,7 +4827,7 @@ ${text}`;
   // src/core/codecs/library/js/index.ts
   var type6 = "application/javascript";
   var suffixes6 = "js";
-  var encode8 = (moduleObject) => moduleObject;
+  var encode8 = () => void 0;
   var decode7 = async (o, config2) => {
     const textContent = !o.text ? await decode2(o) : o.text;
     const imported = await import_default(textContent, config2);
@@ -5405,6 +4853,9 @@ ${text}`;
       this.getType = (suffix2) => this.suffixToType[suffix2];
       this.decode = (o, type8, name2, config2) => decode_default(o, type8, name2, config2, void 0, this);
       this.encode = (o, type8, name2, config2) => encode_default(o, type8, name2, config2, void 0, this);
+      this.hasDependencies = (file3) => {
+        return file3.mimeType === "application/javascript";
+      };
       if (!Array.isArray(codecsInput))
         codecsInput = [codecsInput];
       codecsInput.forEach((codecs2) => {
@@ -5468,7 +4919,6 @@ ${text}`;
     let fileConfig = config2;
     if (!(file3 instanceof RangeFile)) {
       if (system3.native) {
-        console.log("Is Native", file3.constructor.name !== "FileSystemFileHandle");
         if (file3.constructor.name !== "FileSystemFileHandle") {
           const openInfo = await open_default(path, {
             path,
@@ -5478,7 +4928,6 @@ ${text}`;
             debug
           });
           if (openInfo && openInfo.constructor.name === "FileSystemDirectoryHandle") {
-            console.log("Got parent!");
             file3 = openInfo;
           }
         }
@@ -5503,19 +4952,6 @@ ${text}`;
       return createFile(file3, path, system3);
   };
 
-  // src/core/utils/iterate.ts
-  var iterAsync = async (iterable, asyncCallback) => {
-    const promises = [];
-    let i = 0;
-    for await (const entry of iterable) {
-      promises.push(asyncCallback(entry, i));
-      i++;
-    }
-    const arr = await Promise.all(promises);
-    return arr;
-  };
-  var iterate_default = iterAsync;
-
   // src/core/system/core/save.ts
   var saveEach = async (rangeFile, config2, counter, length) => {
     await rangeFile.save(config2.force);
@@ -5538,9 +4974,7 @@ ${text}`;
   // src/core/system/remote/open.ts
   var openRemote = async (path, config2) => {
     let {
-      system: system3,
-      codecs: codecs2,
-      debug
+      system: system3
     } = config2;
     return await handleFetch(path).then(async (info) => {
       const splitURL = info.url.split("/");
@@ -5548,12 +4982,7 @@ ${text}`;
       let blob = new Blob([info.buffer], { type: info.type });
       blob.name = fileName;
       const file3 = createFile(blob, info.url, system3);
-      const rangeFile = await load(file3, {
-        path: info.url,
-        system: system3,
-        codecs: codecs2,
-        debug
-      });
+      const rangeFile = await system3.load(file3, info.url);
       return rangeFile;
     });
   };
@@ -5601,22 +5030,10 @@ ${text}`;
   };
 
   // src/core/system/System.ts
-  globalThis.FREERANGE_NODE = false;
-  try {
-    if (typeof process === "object") {
-      globalThis.FREERANGE_NODE = true;
-      const fetch = __require("node-fetch").default;
-      if (typeof globalThis.fetch !== "function")
-        globalThis.fetch = fetch;
-      const Blob3 = (init_browser(), __toCommonJS(browser_exports)).default;
-      globalThis.Blob = Blob3;
-      if (typeof globalThis.Blob !== "function")
-        globalThis.Blob = Blob3;
-    }
-  } catch (err2) {
-  }
   var System = class {
     constructor(name2, systemInfo = {}) {
+      this.dependencies = {};
+      this.dependents = {};
       this.changelog = [];
       this.files = {};
       this.groups = {};
@@ -5630,6 +5047,10 @@ ${text}`;
           const native = await this.mountNative(this.name, mountConfig);
           if (!native)
             console.error("Unable to mount native filesystem!");
+          else {
+            if (this.oninit instanceof Function)
+              this.oninit(native);
+          }
         } else {
           const path = this.name;
           const isURL2 = isURL(path);
@@ -5643,10 +5064,11 @@ ${text}`;
               await file3.body;
             } else {
               await this.mountRemote(this.name, mountConfig).catch((e) => console.warn("System initialization failed.", e));
-              console.log("Done mounting remote?");
             }
           } else if (this.name)
             this.root = "";
+          if (this.oninit instanceof Function)
+            this.oninit(this.name);
         }
       };
       this.addGroup = (name2, initial, condition) => {
@@ -5708,7 +5130,7 @@ ${text}`;
       this.checkToLoad = (name2) => {
         return this.ignore.reduce((a, b) => a * (name2?.includes(b) ? 0 : 1), 1);
       };
-      this.load = async (file3, path) => {
+      this.load = async (file3, path, dependent) => {
         const existingFile = this.files.list.get(path);
         if (existingFile)
           return existingFile;
@@ -5719,13 +5141,23 @@ ${text}`;
             file3 = createFile(file3, path, this);
           const toLoad = this.checkToLoad(file3.name ?? file3.path ?? path);
           if (toLoad) {
-            return await load(file3, {
+            const rangeFile = await load(file3, {
               path,
               system: this,
               debug: this.debug,
               codecs: this.codecs,
               create: this.writable
             });
+            if (dependent) {
+              if (!this.dependencies[dependent])
+                this.dependencies[dependent] = /* @__PURE__ */ new Map();
+              this.dependencies[dependent].set(rangeFile.path, rangeFile);
+              if (!this.dependents[rangeFile.path])
+                this.dependents[rangeFile.path] = /* @__PURE__ */ new Map();
+              const file4 = this.files.list.get(dependent);
+              this.dependents[rangeFile.path].set(file4.path, file4);
+            }
+            return rangeFile;
           } else
             console.warn(`Ignoring ${file3.name}`);
         }
@@ -5742,16 +5174,17 @@ ${text}`;
       this.open = async (path, create) => {
         if (!this.native)
           path = get2(path, this.root);
-        return await open_default(path, {
+        const rangeFile = await open_default(path, {
           path,
           debug: this.debug,
           system: this,
           create: create ?? this.writable,
           codecs: this.codecs
         });
+        return rangeFile;
       };
       this.save = async (force, progress = this.progress) => await save_default(this.name, Array.from(this.files.list.values()), force, progress);
-      this.sync = async () => await iterate_default(Array.from(this.files.list.values()), async (entry) => await entry.sync());
+      this.sync = async () => await iterate_default(this.files.list.values(), async (entry) => await entry.sync());
       this.transfer = async (target) => await transfer_default(this, target);
       this.name = name2;
       this.native = systemInfo.native;
@@ -5884,6 +5317,73 @@ ${text}`;
   };
   var mount_default2 = mountNative;
 
+  // src/frontend/node_modules/safari-14-idb-fix/dist/index.js
+  function idbReady() {
+    var isSafari = !navigator.userAgentData && /Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\//.test(navigator.userAgent);
+    if (!isSafari || !indexedDB.databases)
+      return Promise.resolve();
+    var intervalId;
+    return new Promise(function(resolve) {
+      var tryIdb = function() {
+        return indexedDB.databases().finally(resolve);
+      };
+      intervalId = setInterval(tryIdb, 100);
+      tryIdb();
+    }).finally(function() {
+      return clearInterval(intervalId);
+    });
+  }
+  var dist_default = idbReady;
+
+  // src/frontend/node_modules/idb-keyval/dist/index.js
+  function promisifyRequest(request) {
+    return new Promise((resolve, reject) => {
+      request.oncomplete = request.onsuccess = () => resolve(request.result);
+      request.onabort = request.onerror = () => reject(request.error);
+    });
+  }
+  function createStore(dbName, storeName) {
+    const dbp = dist_default().then(() => {
+      const request = indexedDB.open(dbName);
+      request.onupgradeneeded = () => request.result.createObjectStore(storeName);
+      return promisifyRequest(request);
+    });
+    return (txMode, callback) => dbp.then((db) => callback(db.transaction(storeName, txMode).objectStore(storeName)));
+  }
+  var defaultGetStoreFunc;
+  function defaultGetStore() {
+    if (!defaultGetStoreFunc) {
+      defaultGetStoreFunc = createStore("keyval-store", "keyval");
+    }
+    return defaultGetStoreFunc;
+  }
+  function get3(key, customStore = defaultGetStore()) {
+    return customStore("readonly", (store) => promisifyRequest(store.get(key)));
+  }
+  function set(key, value, customStore = defaultGetStore()) {
+    return customStore("readwrite", (store) => {
+      store.put(value, key);
+      return promisifyRequest(store.transaction);
+    });
+  }
+
+  // src/frontend/src/cache.ts
+  var cacheName = `freerange-history`;
+  var maxHistory = 10;
+  var setCache = async (info) => {
+    console.log("Init", info);
+    let history = await get3(cacheName);
+    if (!history)
+      history = [info];
+    else if (!history.includes(info)) {
+      history.push(info);
+      if (history.length > maxHistory)
+        history.shift();
+    }
+    console.log(cacheName, history);
+    set(cacheName, history);
+  };
+
   // src/frontend/src/LocalSystem.ts
   var LocalSystem = class extends System {
     constructor(name2, info) {
@@ -5891,6 +5391,7 @@ ${text}`;
       this.isNative = (info) => !info || info instanceof FileSystemDirectoryHandle;
       this.openNative = open_default3;
       this.mountNative = mount_default2;
+      this.oninit = setCache;
     }
   };
 

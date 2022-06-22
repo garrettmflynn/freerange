@@ -94,8 +94,11 @@ export default class System {
 
     }
 
+    // Events
     progress?: ProgressCallbackType
+    oninit?: Function
 
+    // Initialization
     init = async () => {
 
         let mountConfig = {
@@ -107,6 +110,10 @@ export default class System {
         if (this.isNative(this.name)){
             const native = await this.mountNative(this.name, mountConfig)  // this.native set internally
             if (!native) console.error('Unable to mount native filesystem!')
+            else {
+                // Send Directory Handle on Initialization 
+                if (this.oninit instanceof Function) this.oninit(native)
+            }
         }
 
         // -------------- Set Remote Info --------------
@@ -135,7 +142,11 @@ export default class System {
 
             // Case #3: Arbitrary Collection of Remote Files
             else if (this.name) this.root = ''
+
+            // Send Name on Initialization 
+            if (this.oninit instanceof Function) this.oninit(this.name)
         }
+
     }
 
     addGroup = (name, initial, condition) => {
