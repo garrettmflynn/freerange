@@ -2,6 +2,12 @@ import * as pathUtils from "../../utils/path"
 import { PathType, AnyObj, TimeoutRequestInit, ResponseType } from "../../types"
 import { ConfigType } from '../../types/config'
 
+
+const networkErrorMessages = ['Failed to fetch', 'NetworkError when attempting to fetch resource.', 'Network request failed']
+
+const isNetworkErrorMessage = (msg) => networkErrorMessages.includes(msg)
+const isNetworkError = (error) => error.name === 'TypeError' && isNetworkErrorMessage(error.message)
+
 const getURL = (path) => {
     let url
     try { url = new URL(path).href } 
@@ -77,7 +83,7 @@ export const fetchRemote = async (url, options:TimeoutRequestInit={}, progressCa
 
         } else {
             console.warn('Response not received!', options.headers)
-            resolve()
+            resolve(undefined)
         }
     })
 }
@@ -93,7 +99,21 @@ async function fetchWithTimeout(resource, options:TimeoutRequestInit = {}) {
     const response = await globalThis.fetch(resource, {
       ...options,
       signal: controller.signal  
-    });
+    }).catch(e => {
+
+        clearTimeout(id);
+        const networkError = isNetworkError(e)
+        if(networkError){
+            throw new Error('No internet.')
+         } else throw e
+    })
+
     clearTimeout(id);
+
+    if (!response.ok){
+        if (response.status === 404) throw new Error(`Resource not found.`)
+        else throw response
+    }
+
     return response;
   }

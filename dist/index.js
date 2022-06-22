@@ -4167,6 +4167,9 @@
   };
 
   // src/core/system/remote/request.ts
+  var networkErrorMessages = ["Failed to fetch", "NetworkError when attempting to fetch resource.", "Network request failed"];
+  var isNetworkErrorMessage = (msg) => networkErrorMessages.includes(msg);
+  var isNetworkError = (error) => error.name === "TypeError" && isNetworkErrorMessage(error.message);
   var getURL = (path) => {
     let url;
     try {
@@ -4225,7 +4228,7 @@
         }
       } else {
         console.warn("Response not received!", options2.headers);
-        resolve();
+        resolve(void 0);
       }
     });
   };
@@ -4239,8 +4242,21 @@
     const response = await globalThis.fetch(resource, {
       ...options2,
       signal: controller.signal
+    }).catch((e) => {
+      clearTimeout(id);
+      const networkError = isNetworkError(e);
+      if (networkError) {
+        throw new Error("No internet.");
+      } else
+        throw e;
     });
     clearTimeout(id);
+    if (!response.ok) {
+      if (response.status === 404)
+        throw new Error(`Resource not found.`);
+      else
+        throw response;
+    }
     return response;
   }
 
@@ -4884,17 +4900,10 @@ ${text}`;
     else {
       if (useNative && config2.system.openNative instanceof Function)
         file3 = await config2.system.openNative(path, config2);
-      else {
-        try {
-          file3 = await config2.system.openRemote(path, config2);
-        } catch (e) {
-          console.warn("Remote failed", e);
-        }
-      }
+      else
+        file3 = await config2.system.openRemote(path, config2);
       if (file3)
         return file3;
-      else
-        console.error(`Could not open ${path}...`);
     }
   };
   var open_default = open;
@@ -5939,7 +5948,7 @@ ${text}`;
       }
     },
     remote: {
-      esm: "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js",
+      esm: "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.jdds",
       root: {
         base: "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/README.md",
         html: "index.html",

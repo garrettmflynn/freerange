@@ -27,7 +27,7 @@ export default {
         },
     },
     remote: {
-        esm: 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js',
+        esm: 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.jdds',
         root: {
             base: 'https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/README.md',
             html: 'index.html',
