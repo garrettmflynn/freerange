@@ -93,8 +93,11 @@ async function fetchWithTimeout(resource, options:TimeoutRequestInit = {}) {
     
     const controller = new AbortController();
     const id = setTimeout(() => {
+
+        // TODO: Ensure these request timeouts still result in the desired downstream effect
         console.warn(`Request to ${resource} took longer than ${(timeout/1000).toFixed(2)}s`)
         controller.abort()
+        throw new Error(`Request timeout`)
     }, timeout);
     const response = await globalThis.fetch(resource, {
       ...options,
