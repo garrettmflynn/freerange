@@ -1,4 +1,4 @@
-import { AnyObj, GroupType, PathType, CodecCollection } from '../types'
+import { AnyObj, GroupType, PathType } from '../types'
 import { SystemInfo, Group, ConditionType } from '../types/system'
 import { ProgressCallbackType } from '../types/config'
 
@@ -56,15 +56,10 @@ export default class System {
     groupConditions: Set<Function> = new Set()
 
     constructor(name?: string, systemInfo: SystemInfo = {}) {
-        this.name = name
-        this.native = systemInfo.native
-        this.debug = systemInfo.debug
-        this.ignore = systemInfo.ignore ?? []
-        this.writable = systemInfo.writable
-        this.progress = systemInfo.progress
-        this.codecs = new Codecs([codecs, systemInfo.codecs]) // Provide all codecs
 
-                // -------------- Default Groupings --------------
+        this.apply(Object.assign(systemInfo, {name}))
+
+        // -------------- Default Groupings --------------
         // file system
         this.addGroup('system', {}, (file, path, files) => {
             let target = files.system
@@ -302,5 +297,23 @@ sync = async () => await iterAsync(this.files.list.values(), async entry => awai
 
 // ------------ Core Transfer Method ------------
 transfer = async (target:System) => await transfer(this, target)
+
+// ------------ Apply Other System Properties ------------
+apply = (system: any) => {
+    
+    this.name = system.name
+    if (system.native) this.native = system.native
+    if (system.debug) this.debug = system.debug
+    if (system.ignore) this.ignore = system.ignore ?? []
+    if (system.writable)  this.writable = system.writable
+    if (system.progress) this.progress = system.progress
+    if (system.codecs instanceof Codecs) this.codecs = system.codecs
+    else  this.codecs = new Codecs([codecs, system.codecs]) // Provide all codecs
+
+    // skip init
+    this.root = system.root
+
+}
+
 
 }

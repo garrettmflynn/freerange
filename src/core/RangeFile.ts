@@ -56,7 +56,6 @@ export default class RangeFile {
     constructor(file, options: FileConfig) {
 
         // Where To Save
-        console.log('Creating a file', file)
         if (file.constructor.name ===  'FileSystemFileHandle') {
             this.fileSystemHandle = file
         } else this.file = file // Might just be a spoof object
@@ -99,7 +98,6 @@ export default class RangeFile {
         newFile.webkitRelativePath = oldFile.webkitRelativePath || path.get(this.path || this.name, this.system.root)
 
         // Create File in System
-        console.log('Getting new file', newFile, create, this.fileSystemHandle)
         if (create && !this.fileSystemHandle) {
             console.warn(`Native file handle for ${this.path} does not exist. Choosing a filesystem to mount...`);
             await transfer(this.system)
@@ -294,9 +292,7 @@ export default class RangeFile {
     save = async (force=!!this.remote) => {
 
             // Save Self
-            console.warn('Syncing', this.path, force)
             const file = await this.sync(force, true)
-            console.warn('Synced', this.path, file, force)
 
             if (file instanceof Blob){
                 const writable = await this.fileSystemHandle.createWritable()

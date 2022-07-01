@@ -49,6 +49,8 @@ const transfer = async (previousSystem: System, targetSystem?: System, transferL
         // if (this.debug) 
         console.warn(`Time to transfer files to ${targetSystem.name}: ${toc-tic}ms`)
         await Promise.all(notTransferred.map(async f => f.save(true))) // save all
+
+        previousSystem.apply(targetSystem)
     }
 }
 
