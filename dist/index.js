@@ -4099,35 +4099,39 @@
   var transferEach = async (f, system3) => {
     const path = f.path;
     if (!f.storage.buffer)
-      f.storage.buffer = await f.getFileData();
+      f.storage = await f.getFileData();
     const blob = new Blob([f.storage.buffer]);
     blob.name = f.name;
-    const newFile = await system3.load(blob, path);
+    let newFile = await system3.open(path, true);
     if (!f.fileSystemHandle) {
       f.fileSystemHandle = newFile.fileSystemHandle;
       f.method = "transferred";
     }
   };
   var transfer = async (previousSystem, targetSystem, transferList) => {
-    if (!targetSystem) {
-      const SystemConstructor = previousSystem.constructor;
-      targetSystem = new SystemConstructor(void 0, {
-        native: previousSystem.native,
-        debug: previousSystem.debug,
-        ignore: previousSystem.ignore,
-        writable: true,
-        progress: previousSystem.progress,
-        codecs: previousSystem.codecs
-      });
-      await targetSystem.init();
-    }
     if (!transferList)
       transferList = Array.from(previousSystem.files.list.values());
-    console.warn(`Starting transfer of ${transferList.length} files from ${previousSystem.name} to ${targetSystem.name}`);
-    const tic = performance.now();
-    await Promise.all(transferList.map(async (f) => transferEach(f, targetSystem)));
-    const toc = performance.now();
-    console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
+    const notTransferred = transferList.filter((f) => f.method != "transferred");
+    if (notTransferred.length > 0) {
+      if (!targetSystem) {
+        const SystemConstructor = previousSystem.constructor;
+        targetSystem = new SystemConstructor(void 0, {
+          native: previousSystem.native,
+          debug: previousSystem.debug,
+          ignore: previousSystem.ignore,
+          writable: true,
+          progress: previousSystem.progress,
+          codecs: previousSystem.codecs
+        });
+        await targetSystem.init();
+      }
+      console.warn(`Starting transfer of ${notTransferred.length} files from ${previousSystem.name} to ${targetSystem.name}`, transferList);
+      const tic = performance.now();
+      await Promise.all(notTransferred.map(async (f) => transferEach(f, targetSystem)));
+      const toc = performance.now();
+      console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
+      await Promise.all(notTransferred.map(async (f) => f.save(true)));
+    }
   };
   var transfer_default = transfer;
 
@@ -4149,8 +4153,12 @@
     if (dirTokens.length === 1 && dirTokens[0] === "")
       dirTokens = [];
     const potentialFile = dirTokens.pop();
-    if (potentialFile && !potentialFile.includes("."))
-      dirTokens.push(potentialFile);
+    if (potentialFile) {
+      const splitPath = potentialFile.split(".");
+      console.log("Split Path", splitPath);
+      if (splitPath.length == 1 || splitPath.length > 1 && splitPath.includes(""))
+        dirTokens.push(potentialFile);
+    }
     const extensionTokens = path.split("/").filter((str) => {
       if (str === "..") {
         if (dirTokens.length == 0)
@@ -4238,6 +4246,7 @@
     const id = setTimeout(() => {
       console.warn(`Request to ${resource} took longer than ${(timeout / 1e3).toFixed(2)}s`);
       controller.abort();
+      throw new Error(`Request timeout`);
     }, timeout);
     const response = await globalThis.fetch(resource, {
       ...options2,
@@ -4284,6 +4293,7 @@
         newFile.lastModified = oldFile.lastModified;
         newFile.name = oldFile.name;
         newFile.webkitRelativePath = oldFile.webkitRelativePath || get2(this.path || this.name, this.system.root);
+        console.log("Getting new file", newFile, create, this.fileSystemHandle);
         if (create && !this.fileSystemHandle) {
           console.warn(`Native file handle for ${this.path} does not exist. Choosing a filesystem to mount...`);
           await transfer_default(this.system);
@@ -4439,7 +4449,9 @@
         }
       };
       this.save = async (force = !!this.remote) => {
+        console.warn("Syncing", this.path, force);
         const file3 = await this.sync(force, true);
+        console.warn("Synced", this.path, file3, force);
         if (file3 instanceof Blob) {
           const writable = await this.fileSystemHandle.createWritable();
           const stream = file3.stream();
@@ -4637,6 +4649,7 @@
         else
           return data;
       };
+      console.log("Creating a file", file3);
       if (file3.constructor.name === "FileSystemFileHandle") {
         this.fileSystemHandle = file3;
       } else
@@ -5294,6 +5307,7 @@ ${text}`;
       base = base ? get2(handle.name, base) : handle.name;
     const files = [];
     if (handle.kind === "file") {
+      console.log(handle.name, base);
       if (progressCallback2 instanceof Function)
         files.push({ handle, base });
       else
@@ -5948,7 +5962,7 @@ ${text}`;
       }
     },
     remote: {
-      esm: "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.jdds",
+      esm: "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/app/index.js",
       root: {
         base: "https://raw.githubusercontent.com/brainsatplay/brainsatplay-starter-kit/main/README.md",
         html: "index.html",

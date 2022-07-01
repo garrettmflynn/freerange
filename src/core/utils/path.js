@@ -6,7 +6,11 @@ export const get = (path, rel = '') => {
     if (dirTokens.length === 1 && dirTokens[0] === '') dirTokens = [] // Remove consequence of empty string rel
 
     const potentialFile = dirTokens.pop() // remove file name
-    if (potentialFile && !potentialFile.includes('.')) dirTokens.push(potentialFile) // ASSUMPTION: All files have an extension
+    if (potentialFile) {
+        const splitPath = potentialFile.split('.')
+        console.log('Split Path', splitPath)
+       if (splitPath.length == 1 || (splitPath.length > 1 && splitPath.includes(''))) dirTokens.push(potentialFile) // ASSUMPTION: All files have an extension
+    }
 
     const extensionTokens = path.split('/').filter(str => {
         if (str === '..') {

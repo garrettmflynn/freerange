@@ -15,6 +15,7 @@ const onhandle = async (handle, base = '', system: System, progressCallback:Conf
 
     const files = []
     if (handle.kind === 'file') {
+        console.log(handle.name, base)
         if (progressCallback instanceof Function) files.push({ handle, base }) // Add file details to an iterable
         else await system.load(handle, base) // Load file immediately
     } else if (handle.kind === 'directory') {
