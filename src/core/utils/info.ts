@@ -15,15 +15,20 @@ export const suffix = (fileName='') => {
 export const name = (path) => (path) ? path.split('/').slice(-1)[0] : undefined
 export const directory = (path) => (path) ? path.split('/').slice(0, -1).join('/') : undefined
 
-export const esm = (suffix) => (suffix === 'js' || suffix === 'mjs')
+export const esm = (suffix, type) => {
+    if (suffix === 'js' || suffix === 'mjs') return true
+    else if (type && type.includes('javascript')) return true
+    else return false
+}
 
 export const get = (type, name?:string, codecs?: Codecs) => {    
-    // Swap file mimeType if zipped
     let mimeType = type
     const isZipped = zipped(fullSuffix(name), mimeType, codecs)
     const sfx = suffix(name)
-    if (isZipped || !mimeType) mimeType = codecs.getType(sfx)
-    if (esm(sfx)) mimeType = codecs.getType('js') // Override MimeType for ESM files
+
+    // swap mimetype if zipped OR plain text (which GitHub provides every file as when raw)
+    if (isZipped || !mimeType || mimeType === 'text/plain') mimeType = codecs.getType(sfx)
+    if (esm(sfx, mimeType)) mimeType = codecs.getType('js') // Override MimeType for ESM files
 
     return { mimeType, zipped: isZipped, suffix: sfx }
 }

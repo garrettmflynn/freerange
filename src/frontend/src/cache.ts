@@ -13,7 +13,7 @@ export const getCache = async () => {
 }
 
 export const setCache = async (info) => {
-    console.log('Init', info)
+    // console.log('Init', info)
     let history = await get(cacheName)
     if (!history) history = [info]
     else if (!history.includes(info)){

@@ -56,9 +56,8 @@ export default class RangeFile {
     constructor(file, options: FileConfig) {
 
         // Where To Save
-        if (file.constructor.name ===  'FileSystemFileHandle') {
-            this.fileSystemHandle = file
-        } else this.file = file // Might just be a spoof object
+        if (file.constructor.name === 'FileSystemFileHandle') this.fileSystemHandle = file
+        else this.file = file // Might just be a spoof object
 
         this.config = options
 
@@ -121,13 +120,15 @@ export default class RangeFile {
     }
 
 
-    init = async () => {
+    init = async (file=this.file) => {
 
         // Get File from Handle
-        if (!this.file && this.fileSystemHandle) {
-            this.file = await this.fileSystemHandle.getFile()
-            this.loadFileInfo(this.file)
+        if (!file && this.fileSystemHandle) {
+
+            file = await this.fileSystemHandle.getFile()
+            this.loadFileInfo(file)
         }
+        
 
         // Check Codecs for Codec Config
         const loader = this.system.codecs.get(this.mimeType)
@@ -139,11 +140,11 @@ export default class RangeFile {
 
         this.rangeSupported = !!this.rangeConfig 
 
-        // Only Load Buffer for Local Mode
+        // Only Load Buffer for Non-Remote Modes
         let converted = false
-        if (this.method === 'native') {
+        if (this.method != 'remote') {
 
-            this.storage = await this.getFileData().catch(this.onError)
+            this.storage = await this.getFileData(file).catch(this.onError)
 
             // Always Convert File to Blob Spoof
             if (!converted) {
@@ -445,6 +446,18 @@ export default class RangeFile {
 
     }
 
+    apply = (newFile) => {
+
+        // Handle a Transfer
+        if (!this.fileSystemHandle) {
+            this.fileSystemHandle = newFile.fileSystemHandle // Abort saving for template remote files...
+            this.method = 'transferred'
+        }
+
+        // Swap Data
+        this.init(newFile.file)
+    }
+
 
     // -------------------- Remote Support --------------------
 
@@ -485,24 +498,27 @@ export default class RangeFile {
     //     this.storage = await this.getFileData()
     // }
 
-    getFileData = () => {
+    getFileData = (file=this.file) => {
 
     // ----------------- Use Decoders -----------------
     return new Promise(async (resolve, reject) => {
 
-            // Handle Remote Files
+            // ----------- Set RangeFile .file property -----------
+            // remote
             if (this.method === 'remote'){
                 const buffer = await this.getRemote()
-                this.file = await this.createFile(buffer) // Create a file object locally
-                resolve({file: this.file, buffer})
-            } 
+                this.file = file = await this.createFile(buffer) // Create a file object locally
+                resolve({file, buffer})
+            }
             
-            // Handle Local Files
+            // local
             else {
+
+                this.file = file
 
 
             let method = 'buffer'
-            if (this.file.type && (this.file.type.includes('image/') || this.file.type.includes('video/'))) method = 'dataurl'
+            if (file.type && (file.type.includes('image/') || file.type.includes('video/'))) method = 'dataurl'
                 
 
             if (globalThis.FREERANGE_NODE){
@@ -513,8 +529,8 @@ export default class RangeFile {
                     'buffer': 'arrayBuffer'
                 }
 
-                const data = await this.file[methods[method]]()
-                resolve({file: this.file, [method]: this.handleData(data)})
+                const data = await file[methods[method]]()
+                resolve({file, [method]: this.handleData(data)})
 
             } else { 
 
@@ -531,17 +547,17 @@ export default class RangeFile {
                         if (!e.target.result) return reject(`No result returned using the ${method} method on ${this.file.name}`)
 
                         let data = e.target.result
-                        resolve({file: this.file, [method]: this.handleData(data)})
+                        resolve({file, [method]: this.handleData(data)})
                     } 
 
                     // No Data
                     else if (e.target.readyState == FileReader.EMPTY) {
                         if (this.debug) console.warn(`${this.file.name} is empty`)
-                        resolve({file: this.file, [method]: new Uint8Array()})
+                        resolve({file, [method]: new Uint8Array()})
                     }
                 }
                 
-                reader[methods[method]](this.file)
+                reader[methods[method]](file)
             }
         }
     })

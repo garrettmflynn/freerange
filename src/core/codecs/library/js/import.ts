@@ -28,7 +28,9 @@ const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) =
 
         console.warn(`${config.path} contains ES6 imports. Manually importing these modules...`)
         const base = pathUtils.get("", config.path);
-        let childBase = (config.system.root) ? pathUtils.get(base, config.system.root) : base
+
+        const needsRoot = config.system.root && !config.system.native // Only remote files need root
+        let childBase = (needsRoot) ? pathUtils.get(base, config.system.root) : base;
 
         // Use a Regular Expression to Splice Out the Import Details
         const importInfo = {}
@@ -50,18 +52,19 @@ const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) =
             // Check If Already Exists
             let correctPath = pathUtils.get(path, childBase)
             const variables = importInfo[path];
-            const existingFile = config.system.files.list.get(pathUtils.get(path))
+            const existingFile = config.system.files.list.get(pathUtils.get(correctPath))
             let blob = existingFile?.file
 
             // Or Fetch From Remote
             if (!blob){
                 const info = await handleFetch(correctPath)
                 blob = new Blob([info.buffer], {type: info.type}) as BlobFile
-                await config.system.load(blob, correctPath, config.path)  // load into system       
+                await config.system.load(blob, correctPath)  // load into system    
             }        
+            
+            config.system.trackDependency(correctPath, config.path)   
 
                 let thisText = await blob.text()
-
 
                 const imported = await safeESMImport(thisText, {
                     path: correctPath,

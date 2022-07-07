@@ -9,11 +9,7 @@ const transferEach = async (f, system) => {
         const blob = new Blob([f.storage.buffer]) as BlobFile
 
         blob.name = f.name
-        let newFile = await system.open(path, true) // Open file in native system
-        if (!f.fileSystemHandle) {
-            f.fileSystemHandle = newFile.fileSystemHandle // Abort saving for template remote files...
-            f.method = 'transferred'
-        }
+        await system.open(path, true) // Open file in native system, apply properties later
     }
 
 // Transferring Paths and Parents Between Systems
@@ -48,9 +44,8 @@ const transfer = async (previousSystem: System, targetSystem?: System, transferL
         const toc = performance.now()
         // if (this.debug) 
         console.warn(`Time to transfer files to ${targetSystem.name}: ${toc-tic}ms`)
+        previousSystem.apply(targetSystem) // transfer files
         await Promise.all(notTransferred.map(async f => f.save(true))) // save all
-
-        previousSystem.apply(targetSystem)
     }
 }
 

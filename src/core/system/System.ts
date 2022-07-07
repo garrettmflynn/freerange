@@ -205,8 +205,17 @@ export default class System {
         return files
     }
 
-    checkToLoad = (name) => {
-        return this.ignore.reduce((a, b) => a * (name?.includes(b) ? 0 : 1), 1)
+    checkToLoad = (path) => {
+
+        const split = path.split("/");
+        const fileName = split.pop();
+       const toLoad = this.ignore.reduce((a, b) => {
+          if (fileName === b) return a * 0;
+          else if (path.includes(`${b}/`)) return a * 0;
+          else return a * 1;
+        }, 1);
+        
+        return toLoad
     }
 
     load = async (file, path: PathType, dependent?: string) => {
@@ -220,7 +229,7 @@ export default class System {
             if (!this.native) file = createRemoteFile(file, path, this)
 
             // Check to Load
-            const toLoad = this.checkToLoad(file.name ?? file.path ?? path)
+            const toLoad = this.checkToLoad(file.path ?? path)
             if (toLoad) {
             
                 // Use Library Load Function
@@ -247,6 +256,15 @@ export default class System {
         }
     }
 
+    trackDependency = (path: PathType, dependent?: string) => {
+        const rangeFile = this.files.list.get(path)
+        if (!this.dependencies[dependent]) this.dependencies[dependent] = new Map()
+        this.dependencies[dependent].set(path, rangeFile)
+        if (!this.dependents[path]) this.dependents[path] = new Map()
+        const file = this.files.list.get(dependent)
+        this.dependents[path].set(file.path, file)
+    }
+
     add = (file: RangeFile) => {
          
         // // Overwrite Existing Files
@@ -256,7 +274,7 @@ export default class System {
 
             // Add File to Groups
             this.groupConditions.forEach(func => func(file, file.path, this.files))
-        } else console.warn(`${this.name}/${file.path} already exists!`)
+        } else console.warn(`${file.path} already exists in the ${this.name} system!`)
 
 }
 
@@ -299,7 +317,7 @@ sync = async () => await iterAsync(this.files.list.values(), async entry => awai
 transfer = async (target:System) => await transfer(this, target)
 
 // ------------ Apply Other System Properties ------------
-apply = (system: any) => {
+apply = async (system: any) => {
     
     this.name = system.name
     if (system.native) this.native = system.native
@@ -309,6 +327,24 @@ apply = (system: any) => {
     if (system.progress) this.progress = system.progress
     if (system.codecs instanceof Codecs) this.codecs = system.codecs
     else  this.codecs = new Codecs([codecs, system.codecs]) // Provide all codecs
+    
+
+    // Transfer Files that were Loaded
+    const files = system.files?.list
+    if (files){
+        await iterAsync(files, async (newFile) => {
+            console.log('NewFile', newFile)
+            const path = newFile.path
+            let f = this.files.list.get(newFile.path) // get existing file
+
+            // Load New File
+            if (!f) await this.load(newFile, path)
+
+            // Transfer Properties from Old File
+            else f.apply(newFile)
+
+        })
+    }
 
     // skip init
     this.root = system.root
