@@ -4,7 +4,7 @@
   "type": "module",
   "description": "File import and export utilities with free range-request support for remote files",
   "main": "dist/index.js",
-  "types": "dist/src/index.d.ts",
+  "types": "dist/frontend/src/index.d.ts",
   "files": [
     "dist/*.js",
     "dist/**/*.js",
