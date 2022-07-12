@@ -45,7 +45,7 @@ export default class System {
 
 
     // Controls
-    ignore: SystemInfo['ignore']
+    ignore: SystemInfo['ignore'] = []
     debug: SystemInfo['debug']
     // registry: SystemInfo['registry']
     codecs: Codecs
@@ -332,7 +332,7 @@ apply = async (system: any) => {
     // Transfer Files that were Loaded
     const files = system.files?.list
     if (files){
-        await iterAsync(files, async (newFile) => {
+        await iterAsync(Array.from(files.values()), async (newFile) => {
             console.log('NewFile', newFile)
             const path = newFile.path
             let f = this.files.list.get(newFile.path) // get existing file
@@ -341,7 +341,7 @@ apply = async (system: any) => {
             if (!f) await this.load(newFile, path)
 
             // Transfer Properties from Old File
-            else f.apply(newFile)
+            else await f.apply(newFile, false)
 
         })
     }

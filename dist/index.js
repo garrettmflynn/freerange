@@ -28,14 +28,21 @@
   };
   var name = (path) => path ? path.split("/").slice(-1)[0] : void 0;
   var directory = (path) => path ? path.split("/").slice(0, -1).join("/") : void 0;
-  var esm = (suffix2) => suffix2 === "js" || suffix2 === "mjs";
+  var esm = (suffix2, type8) => {
+    if (suffix2.slice(-2) === "js")
+      return true;
+    else if (type8 && type8.includes("javascript"))
+      return true;
+    else
+      return false;
+  };
   var get = (type8, name2, codecs2) => {
     let mimeType = type8;
     const isZipped = zipped(fullSuffix(name2), mimeType, codecs2);
     const sfx = suffix(name2);
-    if (isZipped || !mimeType)
+    if (isZipped || !mimeType || mimeType === "text/plain")
       mimeType = codecs2.getType(sfx);
-    if (esm(sfx))
+    if (esm(sfx, mimeType))
       mimeType = codecs2.getType("js");
     return { mimeType, zipped: isZipped, suffix: sfx };
   };
@@ -4102,11 +4109,7 @@
       f.storage = await f.getFileData();
     const blob = new Blob([f.storage.buffer]);
     blob.name = f.name;
-    let newFile = await system3.open(path, true);
-    if (!f.fileSystemHandle) {
-      f.fileSystemHandle = newFile.fileSystemHandle;
-      f.method = "transferred";
-    }
+    await system3.open(path, true);
   };
   var transfer = async (previousSystem, targetSystem, transferList) => {
     if (!transferList)
@@ -4130,6 +4133,7 @@
       await Promise.all(notTransferred.map(async (f) => transferEach(f, targetSystem)));
       const toc = performance.now();
       console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
+      previousSystem.apply(targetSystem);
       await Promise.all(notTransferred.map(async (f) => f.save(true)));
     }
   };
@@ -4155,7 +4159,6 @@
     const potentialFile = dirTokens.pop();
     if (potentialFile) {
       const splitPath = potentialFile.split(".");
-      console.log("Split Path", splitPath);
       if (splitPath.length == 1 || splitPath.length > 1 && splitPath.includes(""))
         dirTokens.push(potentialFile);
     }
@@ -4183,7 +4186,7 @@
     try {
       url = new URL(path).href;
     } catch {
-      url = get2(path, window.location.href);
+      url = get2(path, globalThis.location.href);
     }
     return url;
   };
@@ -4293,7 +4296,6 @@
         newFile.lastModified = oldFile.lastModified;
         newFile.name = oldFile.name;
         newFile.webkitRelativePath = oldFile.webkitRelativePath || get2(this.path || this.name, this.system.root);
-        console.log("Getting new file", newFile, create, this.fileSystemHandle);
         if (create && !this.fileSystemHandle) {
           console.warn(`Native file handle for ${this.path} does not exist. Choosing a filesystem to mount...`);
           await transfer_default(this.system);
@@ -4312,10 +4314,10 @@
         } else
           console.warn("Valid file object not provided...");
       };
-      this.init = async () => {
-        if (!this.file && this.fileSystemHandle) {
-          this.file = await this.fileSystemHandle.getFile();
-          this.loadFileInfo(this.file);
+      this.init = async (file3 = this.file) => {
+        if (!file3 && this.fileSystemHandle) {
+          file3 = await this.fileSystemHandle.getFile();
+          this.loadFileInfo(file3);
         }
         const loader2 = this.system.codecs.get(this.mimeType);
         const rangeConfig = loader2?.config;
@@ -4327,8 +4329,8 @@
         }
         this.rangeSupported = !!this.rangeConfig;
         let converted = false;
-        if (this.method === "native") {
-          this.storage = await this.getFileData().catch(this.onError);
+        if (this.method != "remote") {
+          this.storage = await this.getFileData(file3).catch(this.onError);
           if (!converted) {
             if (this.storage?.buffer)
               this.file = await this.createFile(this.storage.buffer);
@@ -4449,9 +4451,7 @@
         }
       };
       this.save = async (force = !!this.remote) => {
-        console.warn("Syncing", this.path, force);
         const file3 = await this.sync(force, true);
-        console.warn("Synced", this.path, file3, force);
         if (file3 instanceof Blob) {
           const writable = await this.fileSystemHandle.createWritable();
           const stream = file3.stream();
@@ -4576,6 +4576,13 @@
             await this.rangeConfig.metadata(this["#body"], this.rangeConfig);
         }
       };
+      this.apply = (newFile) => {
+        if (!this.fileSystemHandle) {
+          this.fileSystemHandle = newFile.fileSystemHandle;
+          this.method = "transferred";
+        }
+        this.init(newFile.file);
+      };
       this.getRemote = async (property = {}) => {
         let { start, length } = property;
         const options2 = Object.assign({}, this.remoteOptions);
@@ -4599,23 +4606,24 @@
           return o.buffer;
         }
       };
-      this.getFileData = () => {
+      this.getFileData = (file3 = this.file) => {
         return new Promise(async (resolve, reject) => {
           if (this.method === "remote") {
             const buffer = await this.getRemote();
-            this.file = await this.createFile(buffer);
-            resolve({ file: this.file, buffer });
+            this.file = file3 = await this.createFile(buffer);
+            resolve({ file: file3, buffer });
           } else {
+            this.file = file3;
             let method = "buffer";
-            if (this.file.type && (this.file.type.includes("image/") || this.file.type.includes("video/")))
+            if (file3.type && (file3.type.includes("image/") || file3.type.includes("video/")))
               method = "dataurl";
             if (globalThis.FREERANGE_NODE) {
               const methods = {
                 "dataurl": "dataURL",
                 "buffer": "arrayBuffer"
               };
-              const data = await this.file[methods[method]]();
-              resolve({ file: this.file, [method]: this.handleData(data) });
+              const data = await file3[methods[method]]();
+              resolve({ file: file3, [method]: this.handleData(data) });
             } else {
               const methods = {
                 "dataurl": "readAsDataURL",
@@ -4627,14 +4635,14 @@
                   if (!e.target.result)
                     return reject(`No result returned using the ${method} method on ${this.file.name}`);
                   let data = e.target.result;
-                  resolve({ file: this.file, [method]: this.handleData(data) });
+                  resolve({ file: file3, [method]: this.handleData(data) });
                 } else if (e.target.readyState == FileReader.EMPTY) {
                   if (this.debug)
                     console.warn(`${this.file.name} is empty`);
-                  resolve({ file: this.file, [method]: new Uint8Array() });
+                  resolve({ file: file3, [method]: new Uint8Array() });
                 }
               };
-              reader[methods[method]](this.file);
+              reader[methods[method]](file3);
             }
           }
         });
@@ -4649,10 +4657,9 @@
         else
           return data;
       };
-      console.log("Creating a file", file3);
-      if (file3.constructor.name === "FileSystemFileHandle") {
+      if (file3.constructor.name === "FileSystemFileHandle")
         this.fileSystemHandle = file3;
-      } else
+      else
         this.file = file3;
       this.config = options2;
       this.debug = options2.debug;
@@ -4808,7 +4815,8 @@
     } catch (e) {
       console.warn(`${config2.path} contains ES6 imports. Manually importing these modules...`);
       const base = get2("", config2.path);
-      let childBase = config2.system.root ? get2(base, config2.system.root) : base;
+      const needsRoot = config2.system.root && !config2.system.native;
+      let childBase = needsRoot ? get2(base, config2.system.root) : base;
       const importInfo = {};
       var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
       let m;
@@ -4825,13 +4833,14 @@
       for (let path in importInfo) {
         let correctPath = get2(path, childBase);
         const variables = importInfo[path];
-        const existingFile = config2.system.files.list.get(get2(path));
+        const existingFile = config2.system.files.list.get(get2(correctPath));
         let blob = existingFile?.file;
         if (!blob) {
           const info = await handleFetch(correctPath);
           blob = new Blob([info.buffer], { type: info.type });
-          await config2.system.load(blob, correctPath, config2.path);
+          await config2.system.load(blob, correctPath);
         }
+        config2.system.trackDependency(correctPath, config2.path);
         let thisText = await blob.text();
         const imported = await safeESMImport(thisText, {
           path: correctPath,
@@ -5058,6 +5067,7 @@ ${text}`;
       this.dependents = {};
       this.changelog = [];
       this.files = {};
+      this.ignore = [];
       this.groups = {};
       this.groupConditions = /* @__PURE__ */ new Set();
       this.init = async () => {
@@ -5149,8 +5159,18 @@ ${text}`;
         }
         return files;
       };
-      this.checkToLoad = (name2) => {
-        return this.ignore.reduce((a, b) => a * (name2?.includes(b) ? 0 : 1), 1);
+      this.checkToLoad = (path) => {
+        const split = path.split("/");
+        const fileName = split.pop();
+        const toLoad = this.ignore.reduce((a, b) => {
+          if (fileName === b)
+            return a * 0;
+          else if (path.includes(`${b}/`))
+            return a * 0;
+          else
+            return a * 1;
+        }, 1);
+        return toLoad;
       };
       this.load = async (file3, path, dependent) => {
         const existingFile = this.files.list.get(path);
@@ -5161,7 +5181,7 @@ ${text}`;
             file3.name = name(path);
           if (!this.native)
             file3 = createFile(file3, path, this);
-          const toLoad = this.checkToLoad(file3.name ?? file3.path ?? path);
+          const toLoad = this.checkToLoad(file3.path ?? path);
           if (toLoad) {
             const rangeFile = await load(file3, {
               path,
@@ -5184,11 +5204,21 @@ ${text}`;
             console.warn(`Ignoring ${file3.name}`);
         }
       };
+      this.trackDependency = (path, dependent) => {
+        const rangeFile = this.files.list.get(path);
+        if (!this.dependencies[dependent])
+          this.dependencies[dependent] = /* @__PURE__ */ new Map();
+        this.dependencies[dependent].set(path, rangeFile);
+        if (!this.dependents[path])
+          this.dependents[path] = /* @__PURE__ */ new Map();
+        const file3 = this.files.list.get(dependent);
+        this.dependents[path].set(file3.path, file3);
+      };
       this.add = (file3) => {
         if (!this.files.list.has(file3.path)) {
           this.groupConditions.forEach((func) => func(file3, file3.path, this.files));
         } else
-          console.warn(`${this.name}/${file3.path} already exists!`);
+          console.warn(`${file3.path} already exists in the ${this.name} system!`);
       };
       this.isNative = () => false;
       this.openRemote = open_default2;
@@ -5208,13 +5238,37 @@ ${text}`;
       this.save = async (force, progress = this.progress) => await save_default(this.name, Array.from(this.files.list.values()), force, progress);
       this.sync = async () => await iterate_default(this.files.list.values(), async (entry) => await entry.sync());
       this.transfer = async (target) => await transfer_default(this, target);
-      this.name = name2;
-      this.native = systemInfo.native;
-      this.debug = systemInfo.debug;
-      this.ignore = systemInfo.ignore ?? [];
-      this.writable = systemInfo.writable;
-      this.progress = systemInfo.progress;
-      this.codecs = new Codecs([codecs_exports, systemInfo.codecs]);
+      this.apply = async (system3) => {
+        this.name = system3.name;
+        if (system3.native)
+          this.native = system3.native;
+        if (system3.debug)
+          this.debug = system3.debug;
+        if (system3.ignore)
+          this.ignore = system3.ignore ?? [];
+        if (system3.writable)
+          this.writable = system3.writable;
+        if (system3.progress)
+          this.progress = system3.progress;
+        if (system3.codecs instanceof Codecs)
+          this.codecs = system3.codecs;
+        else
+          this.codecs = new Codecs([codecs_exports, system3.codecs]);
+        const files = system3.files?.list;
+        if (files) {
+          await iterate_default(Array.from(files.values()), async (newFile) => {
+            console.log("NewFile", newFile);
+            const path = newFile.path;
+            let f = this.files.list.get(newFile.path);
+            if (!f)
+              await this.load(newFile, path);
+            else
+              f.apply(newFile);
+          });
+        }
+        this.root = system3.root;
+      };
+      this.apply(Object.assign(systemInfo, { name: name2 }));
       this.addGroup("system", {}, (file3, path, files) => {
         let target = files.system;
         let split = path.split("/");
@@ -5242,6 +5296,11 @@ ${text}`;
 
   // src/frontend/src/native/open.ts
   var openNative = async (path, config2) => {
+    if (!path) {
+      const newHandle = await window.showSaveFilePicker();
+      console.log(newHandle, newHandle.fullPath, newHandle.parent);
+      path = newHandle.fullPath;
+    }
     let nativeHandle = config2.system.native;
     let fileSystem = config2.system?.files?.["system"];
     let { system: system3, create } = config2;
@@ -5307,7 +5366,6 @@ ${text}`;
       base = base ? get2(handle.name, base) : handle.name;
     const files = [];
     if (handle.kind === "file") {
-      console.log(handle.name, base);
       if (progressCallback2 instanceof Function)
         files.push({ handle, base });
       else
@@ -5394,7 +5452,6 @@ ${text}`;
   var cacheName = `freerange-history`;
   var maxHistory = 10;
   var setCache = async (info) => {
-    console.log("Init", info);
     let history = await get3(cacheName);
     if (!history)
       history = [info];
@@ -6051,6 +6108,8 @@ ${text}`;
     system2 = new LocalSystem(void 0, options);
     system2.progress = globalProgressCallback;
     await system2.init();
+    const f = await system2.open();
+    console.log("File", f);
     onMount(system2.files);
   };
   var visualLoaders = {};

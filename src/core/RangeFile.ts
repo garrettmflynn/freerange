@@ -412,30 +412,37 @@ export default class RangeFile {
 
 
         // Define Body Properties
-        Object.defineProperties(this, {
-            ['body']: {
-                enumerable: true,
-                get: async () => this.get(),
-                set: (val) => this.set(val)
-            },
-            [`#body`]: {
-                writable: true,
-                enumerable: false
-            }
-        })
+        if (!('body' in this)){
+            Object.defineProperties(this, {
+                ['body']: {
+                    enumerable: true,
+                    get: async () => this.get(),
+                    set: (val) => this.set(val)
+                },
+                [`#body`]: {
+                    writable: true,
+                    enumerable: false
+                }
+            })
+        }
 
         // Define File Text Properties
-        Object.defineProperties(this, {
-            ['text']: {
-                enumerable: true,
-                get: async () => this.get('text', text),
-                set: (val) => this.set(val, 'text')
-            },
-            [`#text`]: {
-                writable: true,
-                enumerable: false
-            }
-        })
+        if (!('text' in this)){
+            Object.defineProperties(this, {
+                ['text']: {
+                    enumerable: true,
+                    get: async () => this.get('text', text),
+                    set: (val) => this.set(val, 'text')
+                },
+                [`#text`]: {
+                    writable: true,
+                    enumerable: false
+                }
+            })
+        }
+
+        this['#body'] = ''
+        this['#text'] = ''
 
         // Hijack Body to Provide Gettable Properties
         if (this.rangeSupported) {
@@ -446,7 +453,7 @@ export default class RangeFile {
 
     }
 
-    apply = (newFile) => {
+    apply = async (newFile, applyData=true) => {
 
         // Handle a Transfer
         if (!this.fileSystemHandle) {
@@ -455,7 +462,11 @@ export default class RangeFile {
         }
 
         // Swap Data
-        this.init(newFile.file)
+        if (applyData) await this.init(newFile.file)
+
+        // Always Clear Body and Text
+        this["#body"] = null;
+        this["#text"] = null;
     }
 
 

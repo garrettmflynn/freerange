@@ -16,7 +16,7 @@ export const name = (path) => (path) ? path.split('/').slice(-1)[0] : undefined
 export const directory = (path) => (path) ? path.split('/').slice(0, -1).join('/') : undefined
 
 export const esm = (suffix, type) => {
-    if (suffix === 'js' || suffix === 'mjs') return true
+    if (suffix.slice(-2) === "js") return true
     else if (type && type.includes('javascript')) return true
     else return false
 }

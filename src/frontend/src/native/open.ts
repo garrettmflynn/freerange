@@ -8,6 +8,14 @@ const openNative: NativeOpenFunction = async (
     config: NativeOpenConfig
 ) => {
 
+  // TODO: Allow users to create any file anywhere
+  // // Note: It is currently impossible to know where this file sits within the filesystem...
+  // if (!path) {
+  //   const newHandle = await window.showSaveFilePicker() // show file picker with save dialog
+  //   console.log(newHandle, newHandle.fullPath, newHandle.parent)
+  //   path = newHandle.fullPath
+  // }
+
 
     let nativeHandle = config.system.native
     let fileSystem = config.system?.files?.['system']

@@ -11,7 +11,7 @@ const isNetworkError = (error) => error.name === 'TypeError' && isNetworkErrorMe
 const getURL = (path) => {
     let url
     try { url = new URL(path).href } 
-    catch { url = pathUtils.get(path, window.location.href) }
+    catch { url = pathUtils.get(path, globalThis.location.href) }
     return url as string
 }
 

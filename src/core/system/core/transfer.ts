@@ -2,7 +2,7 @@ import RangeFile from "../../RangeFile";
 import System from '../System';
 import { BlobFile } from 'src/core/types';
 
-const transferEach = async (f, system) => {
+const transferEach = async (f:RangeFile, system) => {
         const path = f.path
         if (!f.storage.buffer) f.storage = await f.getFileData()
 
@@ -10,6 +10,7 @@ const transferEach = async (f, system) => {
 
         blob.name = f.name
         await system.open(path, true) // Open file in native system, apply properties later
+        await f.sync() // ensure all files are synced...
     }
 
 // Transferring Paths and Parents Between Systems
@@ -44,7 +45,7 @@ const transfer = async (previousSystem: System, targetSystem?: System, transferL
         const toc = performance.now()
         // if (this.debug) 
         console.warn(`Time to transfer files to ${targetSystem.name}: ${toc-tic}ms`)
-        previousSystem.apply(targetSystem) // transfer files
+        await previousSystem.apply(targetSystem) // transfer files
         await Promise.all(notTransferred.map(async f => f.save(true))) // save all
     }
 }

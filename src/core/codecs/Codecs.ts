@@ -27,7 +27,10 @@ export default class Codecs {
     }
 
     get = (mimeType:MimeType) => this.collection.get(mimeType)
-    getType = (suffix:string) => this.suffixToType[suffix]
+    getType = (suffix:string) => {
+        let k = Object.keys(this.suffixToType).find(k => suffix.slice(-k.length) === k) // last portion of the suffix matches
+        return this.suffixToType[k]
+    }
 
     decode = (o, type:MimeType, name?:string, config?: FileConfig) => decode(o, type, name, config, undefined, this)
     encode = (o, type:MimeType, name?:string, config?: FileConfig) => encode(o, type, name, config, undefined, this)

@@ -34,7 +34,7 @@ const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) =
 
         // Use a Regular Expression to Splice Out the Import Details
         const importInfo = {}
-        var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
+        var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])([ \n\t]*assert[ \n\t]*{type:[ \n\t]*(['"])([^'"\n]+)(?:['"])})?/g;
         let m;
         do {
             m = re.exec(text)
@@ -43,6 +43,7 @@ const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) =
                 text = text.replace(m[0], ``) // Replace found text
                 const variables = m[1].trim().split(',')
                 importInfo[m[3]] = variables // Save variables to path
+                if (m[5]) console.warn(`Importing ${m[3]} as a ${m[5]} file`)
             }
         } while (m);
 
@@ -52,24 +53,18 @@ const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) =
             // Check If Already Exists
             let correctPath = pathUtils.get(path, childBase)
             const variables = importInfo[path];
-            const existingFile = config.system.files.list.get(pathUtils.get(correctPath))
-            let blob = existingFile?.file
+            let existingFile = config.system.files.list.get(pathUtils.get(correctPath))
 
             // Or Fetch From Remote
-            if (!blob){
+            if (!existingFile?.file){
                 const info = await handleFetch(correctPath)
-                blob = new Blob([info.buffer], {type: info.type}) as BlobFile
-                await config.system.load(blob, correctPath)  // load into system    
+                let blob = new Blob([info.buffer], {type: info.type}) as BlobFile
+                existingFile = await config.system.load(blob, correctPath)  // load into system    
             }        
             
             config.system.trackDependency(correctPath, config.path)   
 
-                let thisText = await blob.text()
-
-                const imported = await safeESMImport(thisText, {
-                    path: correctPath,
-                    system: config.system
-                }, onBlob);
+                let imported = await existingFile.body
 
                 if (variables.length > 1) {
                     variables.forEach((str) => {

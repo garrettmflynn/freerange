@@ -99,6 +99,10 @@ localMount.onClick = async () => {
     system = new freerange.System(undefined, options)
     system.progress = globalProgressCallback
     await system.init()
+
+    const f = await system.open()
+    console.log('File', f)
+    
     onMount(system.files)
 }
 
