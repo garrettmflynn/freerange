@@ -45,6 +45,7 @@ const transfer = async (previousSystem: System, targetSystem?: System, transferL
         const toc = performance.now()
         // if (this.debug) 
         console.warn(`Time to transfer files to ${targetSystem.name}: ${toc-tic}ms`)
+        targetSystem.writable = false // turn off writability
         await previousSystem.apply(targetSystem) // transfer files
         await Promise.all(notTransferred.map(async f => f.save(true))) // save all
     }

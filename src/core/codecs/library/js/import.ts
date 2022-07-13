@@ -43,7 +43,6 @@ const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) =
                 text = text.replace(m[0], ``) // Replace found text
                 const variables = m[1].trim().split(',')
                 importInfo[m[3]] = variables // Save variables to path
-                if (m[5]) console.warn(`Importing ${m[3]} as a ${m[5]} file`)
             }
         } while (m);
 
