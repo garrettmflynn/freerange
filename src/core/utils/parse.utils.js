@@ -15,7 +15,7 @@ export var objToString = (obj) => {
       v = `${v}`;
     }
     ret += `
-  ${k}: ${v},`;
+  "${k}": ${v},`;
   }
   ret += "\n}";
   return ret;
