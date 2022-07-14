@@ -11,7 +11,9 @@ export const get = (path, rel = '') => {
        if (splitPath.length == 1 || (splitPath.length > 1 && splitPath.includes(''))) dirTokens.push(potentialFile) // ASSUMPTION: All files have an extension
     }
 
-    const extensionTokens = path.split('/').filter(str => {
+    const pathTokens = path.split("/").filter(str => !!str) // remove bookend slashes
+
+    const extensionTokens = pathTokens.filter(str => {
         if (str === '..') {
             if (dirTokens.length == 0) console.error('Derived path is going out of the valid filesystem!')
             dirTokens.pop() // Pop off directories
