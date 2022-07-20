@@ -57,7 +57,8 @@ export default class System {
 
     constructor(name?: string, systemInfo: SystemInfo = {}) {
 
-        this.apply(Object.assign(systemInfo, {name}))
+        const info = Object.assign({}, systemInfo)
+        this.apply(Object.assign(info, {name}))
 
         // -------------- Default Groupings --------------
         // file system
