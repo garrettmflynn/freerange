@@ -245,7 +245,7 @@ export default class RangeFile {
 
     }
 
-    sync = async (force=!(this.file instanceof Blob), create=undefined) => {
+    sync = async (force:boolean | string[] = !(this.file instanceof Blob), create=undefined) => {
 
         if (this.rangeSupported) {
             if (this.debug) console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.path})`)
@@ -256,6 +256,16 @@ export default class RangeFile {
             const textEncoded = await this.reencode('text', text)
 
             const toSave = bodyEncoded ?? textEncoded
+
+
+            // Check if this file is forced to save
+            if (Array.isArray(force)) force = force.reduce((a, b) => {
+                if (this.name === b) return a * 0; // file
+                else if (this.path.includes(`${b}/`)) return a * 0; // directory
+                else return a * 1;
+              }, 1) ? true : false
+
+            if (this.debug && force) console.warn(`Forcing save of ${this.path}`)
 
             // Check Equivalence
             if (force || toSave){
@@ -290,7 +300,7 @@ export default class RangeFile {
     }
 
     // Always Force Save Remote Files
-    save = async (force=!!this.remote) => {
+    save = async (force: boolean | string[] =!!this.remote) => {
 
             // Save Self
             const file = await this.sync(force, true)

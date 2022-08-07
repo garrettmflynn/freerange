@@ -46,6 +46,8 @@ export default class System {
 
     // Controls
     ignore: SystemInfo['ignore'] = []
+    forceSave: SystemInfo['forceSave'] = []
+
     debug: SystemInfo['debug']
     // registry: SystemInfo['registry']
     codecs: Codecs
@@ -292,11 +294,15 @@ mountRemote: MountMethod<RemoteMountResponse>  = mountRemote
 
 // ------------ Core Open Method (with path update) ------------
 open = async (path, create?:boolean) => {
-    if (!this.native) path = pathUtils.get(path, this.root) // Append root on remote
 
+     const paths: AnyObj = {
+        base: path
+      }
+
+    if (!this.native) paths.remote = pathUtils.get(path, this.root); // Append root on remote
 
     // Loads internally
-    const rangeFile = await open(path, { 
+    const rangeFile = await open(paths, { 
         path,
         debug: this.debug, 
         system: this,
@@ -309,7 +315,7 @@ open = async (path, create?:boolean) => {
 }
 
 // ------------ Core Save Method ------------
-save = async (force, progress:ProgressCallbackType = this.progress) => await save(this.name, Array.from(this.files.list.values()), force, progress) // Save files with dependencies
+save = async (force, progress:ProgressCallbackType = this.progress) => await save(this.name, Array.from(this.files.list.values()), force || this.forceSave, progress) // Save files with dependencies
 
 // ------------ RangeFile Sync Method ------------
 sync = async () => await iterAsync(this.files.list.values(), async entry => await entry.sync())

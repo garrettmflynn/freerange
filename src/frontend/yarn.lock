@@ -176,11 +176,6 @@
   dependencies:
     "path-type" "^4.0.0"
 
-"esbuild-darwin-64@0.14.43":
-  "integrity" "sha512-/3PSilx011ttoieRGkSZ0XV8zjBf2C9enV4ScMMbCT4dpx0mFhMOpFnCHkOK0pWGB8LklykFyHrWk2z6DENVUg=="
-  "resolved" "https://registry.npmjs.org/esbuild-darwin-64/-/esbuild-darwin-64-0.14.43.tgz"
-  "version" "0.14.43"
-
 "esbuild-plugin-d.ts@^1.1.0":
   "integrity" "sha512-3oSR3kUS4fNdKHLYLcST9YOfD2dULe7/UbXnrnu/mRybJYW+jZlYNgklb9Pt7osg6B1qwAYMyr2jTC+Ijj2YbQ=="
   "resolved" "https://registry.npmjs.org/esbuild-plugin-d.ts/-/esbuild-plugin-d.ts-1.1.0.tgz"
@@ -190,6 +185,11 @@
     "jju" "^1.4.0"
     "tmp" "^0.2.1"
     "tsup" "^5.11.1"
+
+"esbuild-windows-64@0.14.43":
+  "integrity" "sha512-8NsuNfI8xwFuJbrCuI+aBqNTYkrWErejFO5aYM+yHqyHuL8mmepLS9EPzAzk8rvfaJrhN0+RvKWAcymViHOKEw=="
+  "resolved" "https://registry.npmjs.org/esbuild-windows-64/-/esbuild-windows-64-0.14.43.tgz"
+  "version" "0.14.43"
 
 "esbuild@^0.14.25", "esbuild@>=0.13", "esbuild@~0.14.41":
   "integrity" "sha512-Uf94+kQmy/5jsFwKWiQB4hfo/RkM9Dh7b79p8yqd1tshULdr25G2szLz631NoH3s2ujnKEKVD16RmOxvCNKRFA=="
@@ -269,11 +269,6 @@
   "integrity" "sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw=="
   "resolved" "https://registry.npmjs.org/fs.realpath/-/fs.realpath-1.0.0.tgz"
   "version" "1.0.0"
-
-"fsevents@~2.3.2":
-  "integrity" "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="
-  "resolved" "https://registry.npmjs.org/fsevents/-/fsevents-2.3.2.tgz"
-  "version" "2.3.2"
 
 "get-stream@^6.0.0":
   "integrity" "sha512-ts6Wi+2j3jQjqi70w5AlN8DFnkSwC+MqmxEzdEALB2qXZYV3X/b1CTfgPLGJNMeAWxdPfU8FO1ms3NUfaHCPYg=="
@@ -501,6 +496,11 @@
   "version" "5.1.2"
   dependencies:
     "mimic-fn" "^2.1.0"
+
+"pako@^2.0.4":
+  "integrity" "sha512-v8tweI900AUkZN6heMU/4Uy4cXRc2AYNRggVmTR+dEncawDJgCdLMximOVA2p4qO57WMynangsfGRb5WD6L1Bg=="
+  "resolved" "https://registry.npmjs.org/pako/-/pako-2.0.4.tgz"
+  "version" "2.0.4"
 
 "path-is-absolute@^1.0.0":
   "integrity" "sha512-AVbw3UJ2e9bq64vSaS9Am0fje1Pa8pbGqTTsmXfaIiMpnr5DlDhfJOuLj9Sf95ZPVDAUerDfEk88MPmPe7UCQg=="
