@@ -13,19 +13,21 @@ const re = /import([ \n\t]*(?:(?:\* (?:as .+))|(?:[^ \n\t\{\}]+[ \n\t]*,?)|(?:[ 
 // const re = /import([ \n\t]*(?:\* (?:as .*))?(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])([ \n\t]*assert[ \n\t]*{type:[ \n\t]*(['"])([^'"\n]+)(?:['"])})?/g 
 // var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])([ \n\t]*assert[ \n\t]*{type:[ \n\t]*(['"])([^'"\n]+)(?:['"])})?/g;
 
+const moduleDataURI = (text, mimeType='text/javascript') => `data:${mimeType};base64,` + btoa(text);
+
 // Direct Import of ES6 Modules
 const esmImport = async (text) => {
-    const moduleDataURI = "data:text/javascript;base64," + btoa(text);
-    let imported = await import(moduleDataURI)
+    let imported = await import(moduleDataURI(text))
     if (imported.default && Object.keys(imported).length === 1) imported = imported.default
     return imported
 }
 
-const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) => {
 
+const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function, output: 'text') => {
 
+    let module;
     try {
-        return await esmImport(text)
+        module = await esmImport(text)
     }
 
     // Catch Nested Imports
@@ -45,7 +47,7 @@ const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) =
             if (m == null) m = re.exec(text); // be extra sure (weird bug)
             if (m) {
                 text = text.replace(m[0], ``) // Replace found text
-                const variables = m[1].trim().split(',')
+                const variables = m[1].replace(/\*\s+as/, '').trim().split(",");
                 importInfo[m[3]] = variables // Save variables to path
             }
         } while (m);
@@ -56,34 +58,39 @@ const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function) =
             // Check If Already Exists
             let correctPath = pathUtils.get(path, childBase)
             const variables = importInfo[path];
-            let existingFile = config.system.files.list.get(pathUtils.get(correctPath))
+           
+      const dependentFilePath = pathUtils.get(correctPath)
+      const dependentFileWithoutRoot = pathUtils.get(dependentFilePath.replace(config.system.root, ''))
+      let existingFile = config.system.files.list.get(dependentFileWithoutRoot);
+      
+      // Or fetch from remote
+      if (!existingFile?.file) {
+        const info = await handleFetch(correctPath);
+        let blob = new Blob([info.buffer], { type: info.type });
+        existingFile = await config.system.load(blob, dependentFilePath);
+      }
 
-            // Or Fetch From Remote
-            if (!existingFile?.file){
-                const info = await handleFetch(correctPath)
-                let blob = new Blob([info.buffer], {type: info.type}) as BlobFile
-                existingFile = await config.system.load(blob, correctPath)  // load into system    
-            }        
-            
-            config.system.trackDependency(correctPath, config.path)   
+      const isJS = existingFile.mimeType === 'application/javascript'
+      config.system.trackDependency(correctPath, dependentFileWithoutRoot);
+      const newConfig = Object.assign({}, config)
+      newConfig.path = dependentFileWithoutRoot
+      const newText = await existingFile.text
+      let importedText = (isJS) ? await safeESMImport(newText, newConfig, onBlob, 'text') : newText
 
-                let imported = await existingFile.body
+      const dataUri = moduleDataURI(importedText, existingFile.mimeType);
+        variables.forEach((str) => {
 
-                if (variables.length > 1) {
-                    variables.forEach((str) => {
-                        text = `const ${str} = ${objToString(imported[str])}
+          text = `const ${str} =  await import('${dataUri}', ${isJS ? '{}' : '{assert: {type: "json"}}'});
 ${text}`;
-                    });
-                } else {
-                    text = `const ${variables[0]} = ${objToString(imported)}
-${text}`;
-                }
-        }
-
-        const tryImport = await esmImport(text)
-
-        return tryImport
+        });
     }
+
+        module = await esmImport(text)
+    }
+
+
+    if (output === 'text') return text
+    else return module
 }
 
 export default safeESMImport

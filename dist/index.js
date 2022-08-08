@@ -1456,7 +1456,10 @@
           put_byte(s, OS_CODE);
           s.status = BUSY_STATE;
         } else {
-          put_byte(s, (s.gzhead.text ? 1 : 0) + (s.gzhead.hcrc ? 2 : 0) + (!s.gzhead.extra ? 0 : 4) + (!s.gzhead.name ? 0 : 8) + (!s.gzhead.comment ? 0 : 16));
+          put_byte(
+            s,
+            (s.gzhead.text ? 1 : 0) + (s.gzhead.hcrc ? 2 : 0) + (!s.gzhead.extra ? 0 : 4) + (!s.gzhead.name ? 0 : 8) + (!s.gzhead.comment ? 0 : 16)
+          );
           put_byte(s, s.gzhead.time & 255);
           put_byte(s, s.gzhead.time >> 8 & 255);
           put_byte(s, s.gzhead.time >> 16 & 255);
@@ -1978,7 +1981,14 @@
     this.chunks = [];
     this.strm = new zstream();
     this.strm.avail_out = 0;
-    let status = deflate_1$2.deflateInit2(this.strm, opt.level, opt.method, opt.windowBits, opt.memLevel, opt.strategy);
+    let status = deflate_1$2.deflateInit2(
+      this.strm,
+      opt.level,
+      opt.method,
+      opt.windowBits,
+      opt.memLevel,
+      opt.strategy
+    );
     if (status !== Z_OK$2) {
       throw new Error(messages[status]);
     }
@@ -3064,7 +3074,13 @@
                   if (!state.head.extra) {
                     state.head.extra = new Uint8Array(state.head.extra_len);
                   }
-                  state.head.extra.set(input.subarray(next, next + copy), len);
+                  state.head.extra.set(
+                    input.subarray(
+                      next,
+                      next + copy
+                    ),
+                    len
+                  );
                 }
                 if (state.flags & 512) {
                   state.check = crc32_1(state.check, input, copy, next);
@@ -3868,7 +3884,10 @@
     this.chunks = [];
     this.strm = new zstream();
     this.strm.avail_out = 0;
-    let status = inflate_1$2.inflateInit2(this.strm, opt.windowBits);
+    let status = inflate_1$2.inflateInit2(
+      this.strm,
+      opt.windowBits
+    );
     if (status !== Z_OK) {
       throw new Error(messages[status]);
     }
@@ -4110,6 +4129,7 @@
     const blob = new Blob([f.storage.buffer]);
     blob.name = f.name;
     await system3.open(path, true);
+    await f.sync();
   };
   var transfer = async (previousSystem, targetSystem, transferList) => {
     if (!transferList)
@@ -4133,7 +4153,8 @@
       await Promise.all(notTransferred.map(async (f) => transferEach(f, targetSystem)));
       const toc = performance.now();
       console.warn(`Time to transfer files to ${targetSystem.name}: ${toc - tic}ms`);
-      previousSystem.apply(targetSystem);
+      targetSystem.writable = false;
+      await previousSystem.apply(targetSystem);
       await Promise.all(notTransferred.map(async (f) => f.save(true)));
     }
   };
@@ -4162,7 +4183,8 @@
       if (splitPath.length == 1 || splitPath.length > 1 && splitPath.includes(""))
         dirTokens.push(potentialFile);
     }
-    const extensionTokens = path.split("/").filter((str) => {
+    const pathTokens = path.split("/").filter((str) => !!str);
+    const extensionTokens = pathTokens.filter((str) => {
       if (str === "..") {
         if (dirTokens.length == 0)
           console.error("Derived path is going out of the valid filesystem!");
@@ -4416,7 +4438,7 @@
           console.warn(e, this[`#${ref}`], this[`#original${ref}`]);
         }
       };
-      this.sync = async (force = !(this.file instanceof Blob), create = void 0) => {
+      this.sync = async (autosync = !(this.file instanceof Blob) || !!this.remote, create = void 0) => {
         if (this.rangeSupported) {
           if (this.debug)
             console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.path})`);
@@ -4425,7 +4447,18 @@
           const bodyEncoded = await this.reencode();
           const textEncoded = await this.reencode("text", text_exports);
           const toSave = bodyEncoded ?? textEncoded;
-          if (force || toSave) {
+          if (Array.isArray(autosync))
+            autosync = autosync.reduce((a, b) => {
+              if (this.name === b)
+                return a * 0;
+              else if (this.path.includes(`${b}/`))
+                return a * 0;
+              else
+                return a * 1;
+            }, 1) ? true : false;
+          if (this.debug && autosync)
+            console.warn(`Forcing save of ${this.path}`);
+          if (autosync || toSave) {
             if (toSave)
               this.storage.buffer = toSave;
             const newFile = await this.createFile(this.storage.buffer, this.file, create);
@@ -4450,8 +4483,8 @@
             return true;
         }
       };
-      this.save = async (force = !!this.remote) => {
-        const file3 = await this.sync(force, true);
+      this.save = async (autosync = !!this.remote) => {
+        const file3 = await this.sync(autosync, true);
         if (file3 instanceof Blob) {
           const writable = await this.fileSystemHandle.createWritable();
           const stream = file3.stream();
@@ -4546,28 +4579,34 @@
         }
       };
       this.setupByteGetters = async () => {
-        Object.defineProperties(this, {
-          ["body"]: {
-            enumerable: true,
-            get: async () => this.get(),
-            set: (val) => this.set(val)
-          },
-          [`#body`]: {
-            writable: true,
-            enumerable: false
-          }
-        });
-        Object.defineProperties(this, {
-          ["text"]: {
-            enumerable: true,
-            get: async () => this.get("text", text_exports),
-            set: (val) => this.set(val, "text")
-          },
-          [`#text`]: {
-            writable: true,
-            enumerable: false
-          }
-        });
+        if (!("body" in this)) {
+          Object.defineProperties(this, {
+            ["body"]: {
+              enumerable: true,
+              get: async () => this.get(),
+              set: (val) => this.set(val)
+            },
+            [`#body`]: {
+              writable: true,
+              enumerable: false
+            }
+          });
+        }
+        if (!("text" in this)) {
+          Object.defineProperties(this, {
+            ["text"]: {
+              enumerable: true,
+              get: async () => this.get("text", text_exports),
+              set: (val) => this.set(val, "text")
+            },
+            [`#text`]: {
+              writable: true,
+              enumerable: false
+            }
+          });
+        }
+        this["#body"] = "";
+        this["#text"] = "";
         if (this.rangeSupported) {
           this[`#body`] = {};
           for (let key in this.rangeConfig.properties)
@@ -4576,12 +4615,15 @@
             await this.rangeConfig.metadata(this["#body"], this.rangeConfig);
         }
       };
-      this.apply = (newFile) => {
+      this.apply = async (newFile, applyData = true) => {
         if (!this.fileSystemHandle) {
           this.fileSystemHandle = newFile.fileSystemHandle;
           this.method = "transferred";
         }
-        this.init(newFile.file);
+        if (applyData)
+          await this.init(newFile.file);
+        this["#body"] = null;
+        this["#text"] = null;
       };
       this.getRemote = async (property = {}) => {
         let { start, length } = property;
@@ -4703,7 +4745,7 @@
     type: () => type3
   });
   var type3 = "application/json";
-  var suffixes3 = "json";
+  var suffixes3 = ["json", "wasl"];
   var encode5 = (o) => encode2(JSON.stringify(o));
   var decode4 = (o) => {
     const textContent = !o.text ? decode2(o) : o.text;
@@ -4749,14 +4791,16 @@
     const headers = rows.length ? rows.splice(0, 1)[0] : [];
     rows.forEach((arr, i) => {
       let strObject = `{`;
-      strObject += arr.map((val, j) => {
-        try {
-          const parsed = JSON.parse(val);
-          return `"${headers[j]}":${parsed}`;
-        } catch {
-          return `"${headers[j]}":"${val}"`;
+      strObject += arr.map(
+        (val, j) => {
+          try {
+            const parsed = JSON.parse(val);
+            return `"${headers[j]}":${parsed}`;
+          } catch {
+            return `"${headers[j]}":"${val}"`;
+          }
         }
-      }).join(",");
+      ).join(",");
       strObject += "}";
       collection.push(strObject);
     });
@@ -4778,47 +4822,25 @@
     type: () => type6
   });
 
-  // src/core/utils/parse.utils.js
-  var objToString = (obj) => {
-    let ret = "{";
-    for (let k in obj) {
-      let v = obj[k];
-      if (typeof v === "function") {
-        v = v.toString();
-      } else if (v instanceof Array) {
-        v = JSON.stringify(v);
-      } else if (typeof v === "object" && !!v) {
-        v = objToString(v);
-      } else if (typeof v === "string") {
-        v = `"${v}"`;
-      } else {
-        v = `${v}`;
-      }
-      ret += `
-  ${k}: ${v},`;
-    }
-    ret += "\n}";
-    return ret;
-  };
-
   // src/core/codecs/library/js/import.ts
+  var re = /import([ \n\t]*(?:(?:\* (?:as .+))|(?:[^ \n\t\{\}]+[ \n\t]*,?)|(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\}))[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])([ \n\t]*assert[ \n\t]*{type:[ \n\t]*(['"])([^'"\n]+)(?:['"])})?/g;
+  var moduleDataURI = (text, mimeType = "text/javascript") => `data:${mimeType};base64,` + btoa(text);
   var esmImport = async (text) => {
-    const moduleDataURI = "data:text/javascript;base64," + btoa(text);
-    let imported = await import(moduleDataURI);
+    let imported = await import(moduleDataURI(text));
     if (imported.default && Object.keys(imported).length === 1)
       imported = imported.default;
     return imported;
   };
-  var safeESMImport = async (text, config2 = {}, onBlob) => {
+  var safeESMImport = async (text, config2 = {}, onBlob, output) => {
+    let module;
     try {
-      return await esmImport(text);
+      module = await esmImport(text);
     } catch (e) {
       console.warn(`${config2.path} contains ES6 imports. Manually importing these modules...`);
       const base = get2("", config2.path);
       const needsRoot = config2.system.root && !config2.system.native;
       let childBase = needsRoot ? get2(base, config2.system.root) : base;
       const importInfo = {};
-      var re = /import([ \n\t]*(?:[^ \n\t\{\}]+[ \n\t]*,?)?(?:[ \n\t]*\{(?:[ \n\t]*[^ \n\t"'\{\}]+[ \n\t]*,?)+\})?[ \n\t]*)from[ \n\t]*(['"])([^'"\n]+)(?:['"])/g;
       let m;
       do {
         m = re.exec(text);
@@ -4826,39 +4848,39 @@
           m = re.exec(text);
         if (m) {
           text = text.replace(m[0], ``);
-          const variables = m[1].trim().split(",");
+          const variables = m[1].replace(/\*\s+as/, "").trim().split(",");
           importInfo[m[3]] = variables;
         }
       } while (m);
       for (let path in importInfo) {
         let correctPath = get2(path, childBase);
         const variables = importInfo[path];
-        const existingFile = config2.system.files.list.get(get2(correctPath));
-        let blob = existingFile?.file;
-        if (!blob) {
+        const dependentFilePath = get2(correctPath);
+        const dependentFileWithoutRoot = get2(dependentFilePath.replace(config2.system.root, ""));
+        let existingFile = config2.system.files.list.get(dependentFileWithoutRoot);
+        if (!existingFile?.file) {
           const info = await handleFetch(correctPath);
-          blob = new Blob([info.buffer], { type: info.type });
-          await config2.system.load(blob, correctPath);
+          let blob = new Blob([info.buffer], { type: info.type });
+          existingFile = await config2.system.load(blob, dependentFilePath);
         }
-        config2.system.trackDependency(correctPath, config2.path);
-        let thisText = await blob.text();
-        const imported = await safeESMImport(thisText, {
-          path: correctPath,
-          system: config2.system
-        }, onBlob);
-        if (variables.length > 1) {
-          variables.forEach((str) => {
-            text = `const ${str} = ${objToString(imported[str])}
+        const isJS = existingFile.mimeType === "application/javascript";
+        config2.system.trackDependency(correctPath, dependentFileWithoutRoot);
+        const newConfig = Object.assign({}, config2);
+        newConfig.path = dependentFileWithoutRoot;
+        const newText = await existingFile.text;
+        let importedText = isJS ? await safeESMImport(newText, newConfig, onBlob, "text") : newText;
+        const dataUri = moduleDataURI(importedText, existingFile.mimeType);
+        variables.forEach((str) => {
+          text = `const ${str} =  await import('${dataUri}', ${isJS ? "{}" : '{assert: {type: "json"}}'});
 ${text}`;
-          });
-        } else {
-          text = `const ${variables[0]} = ${objToString(imported)}
-${text}`;
-        }
+        });
       }
-      const tryImport = await esmImport(text);
-      return tryImport;
+      module = await esmImport(text);
     }
+    if (output === "text")
+      return text;
+    else
+      return module;
   };
   var import_default = safeESMImport;
 
@@ -4888,7 +4910,10 @@ ${text}`;
         suffixes8.forEach((suffix2) => this.suffixToType[suffix2] = codec.type);
       };
       this.get = (mimeType) => this.collection.get(mimeType);
-      this.getType = (suffix2) => this.suffixToType[suffix2];
+      this.getType = (suffix2) => {
+        let k = Object.keys(this.suffixToType).find((k2) => suffix2.slice(-k2.length) === k2);
+        return this.suffixToType[k];
+      };
       this.decode = (o, type8, name2, config2) => decode_default(o, type8, name2, config2, void 0, this);
       this.encode = (o, type8, name2, config2) => encode_default(o, type8, name2, config2, void 0, this);
       this.hasDependencies = (file3) => {
@@ -4913,17 +4938,28 @@ ${text}`;
   var clone_default = deepClone;
 
   // src/core/system/core/open.ts
-  var open = async (path, config2) => {
+  var open = async (paths, config2) => {
     config2 = Object.assign({}, config2);
     const useNative = !!config2.system?.native;
-    let file3 = config2.system.files.list.get(path);
+    if (typeof paths === "string") {
+      paths = { base: paths };
+    }
+    for (let key in paths) {
+      paths[key] = get2(paths[key], "");
+    }
+    ;
+    let file3 = config2.system.files.list.get(paths.base) ?? config2.system.files.list.get(paths.remote);
     if (file3)
       return file3;
     else {
       if (useNative && config2.system.openNative instanceof Function)
-        file3 = await config2.system.openNative(path, config2);
-      else
-        file3 = await config2.system.openRemote(path, config2);
+        file3 = await config2.system.openNative(paths.base, config2);
+      else {
+        if (paths.remote)
+          file3 = await config2.system.openRemote(paths.remote, config2);
+        if (!file3)
+          file3 = await config2.system.openRemote(paths.base, config2);
+      }
       if (file3)
         return file3;
     }
@@ -4997,7 +5033,7 @@ ${text}`;
       const firstFile = files.shift();
       await saveEach(firstFile, { progressCallback: progressCallback2, name: name2, force }, i, length);
       await iterate_default(files, (f) => saveEach(f, { progressCallback: progressCallback2, name: name2, force }, i, length));
-      resolve();
+      resolve(true);
     });
   };
   var save_default = save;
@@ -5068,6 +5104,7 @@ ${text}`;
       this.changelog = [];
       this.files = {};
       this.ignore = [];
+      this.autosync = [];
       this.groups = {};
       this.groupConditions = /* @__PURE__ */ new Set();
       this.init = async () => {
@@ -5224,9 +5261,12 @@ ${text}`;
       this.openRemote = open_default2;
       this.mountRemote = mount_default;
       this.open = async (path, create) => {
+        const paths = {
+          base: path
+        };
         if (!this.native)
-          path = get2(path, this.root);
-        const rangeFile = await open_default(path, {
+          paths.remote = get2(path, this.root);
+        const rangeFile = await open_default(paths, {
           path,
           debug: this.debug,
           system: this,
@@ -5235,8 +5275,8 @@ ${text}`;
         });
         return rangeFile;
       };
-      this.save = async (force, progress = this.progress) => await save_default(this.name, Array.from(this.files.list.values()), force, progress);
-      this.sync = async () => await iterate_default(this.files.list.values(), async (entry) => await entry.sync());
+      this.save = async (autosync, progress = this.progress) => await save_default(this.name, Array.from(this.files.list.values()), autosync || this.autosync, progress);
+      this.sync = async (autosync) => await iterate_default(this.files.list.values(), async (entry) => await entry.sync(autosync || this.autosync));
       this.transfer = async (target) => await transfer_default(this, target);
       this.apply = async (system3) => {
         this.name = system3.name;
@@ -5263,12 +5303,13 @@ ${text}`;
             if (!f)
               await this.load(newFile, path);
             else
-              f.apply(newFile);
+              await f.apply(newFile, false);
           });
         }
         this.root = system3.root;
       };
-      this.apply(Object.assign(systemInfo, { name: name2 }));
+      const info = Object.assign({}, systemInfo);
+      this.apply(Object.assign(info, { name: name2 }));
       this.addGroup("system", {}, (file3, path, files) => {
         let target = files.system;
         let split = path.split("/");
@@ -5296,11 +5337,6 @@ ${text}`;
 
   // src/frontend/src/native/open.ts
   var openNative = async (path, config2) => {
-    if (!path) {
-      const newHandle = await window.showSaveFilePicker();
-      console.log(newHandle, newHandle.fullPath, newHandle.parent);
-      path = newHandle.fullPath;
-    }
     let nativeHandle = config2.system.native;
     let fileSystem = config2.system?.files?.["system"];
     let { system: system3, create } = config2;
@@ -5398,7 +5434,7 @@ ${text}`;
   };
   var mount_default2 = mountNative;
 
-  // src/frontend/node_modules/safari-14-idb-fix/dist/index.js
+  // node_modules/safari-14-idb-fix/dist/index.js
   function idbReady() {
     var isSafari = !navigator.userAgentData && /Safari\//.test(navigator.userAgent) && !/Chrom(e|ium)\//.test(navigator.userAgent);
     if (!isSafari || !indexedDB.databases)
@@ -5416,7 +5452,7 @@ ${text}`;
   }
   var dist_default = idbReady;
 
-  // src/frontend/node_modules/idb-keyval/dist/index.js
+  // node_modules/idb-keyval/dist/index.js
   function promisifyRequest(request) {
     return new Promise((resolve, reject) => {
       request.oncomplete = request.onsuccess = () => resolve(request.result);

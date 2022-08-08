@@ -1,6 +1,6 @@
 import * as text from './text'
 export const type = "application/json"
-export const suffixes = 'json'
+export const suffixes = ["json", "wasl"]
 
 export const encode = (o) => text.encode(JSON.stringify(o))
 export const decode = (o) => {

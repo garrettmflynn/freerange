@@ -12,6 +12,6 @@ export type SystemInfo = {
     writable?: boolean,
     progress?: ProgressCallbackType,
     codecs?: Codecs | CodecCollection,
-    forceSave?: string[]
+    autosync?: string[]
     // registry?: RegistryType
 }

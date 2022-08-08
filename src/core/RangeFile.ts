@@ -245,7 +245,10 @@ export default class RangeFile {
 
     }
 
-    sync = async (force:boolean | string[] = !(this.file instanceof Blob), create=undefined) => {
+    sync = async (
+        autosync:boolean | string[] = !(this.file instanceof Blob) || !!this.remote, 
+        create=undefined
+        ) => {
 
         if (this.rangeSupported) {
             if (this.debug) console.warn(`Write access is disabled for RangeFile with range-gettable properties (${this.path})`)
@@ -259,16 +262,22 @@ export default class RangeFile {
 
 
             // Check if this file is forced to save
-            if (Array.isArray(force)) force = force.reduce((a, b) => {
+            if (Array.isArray(autosync)) autosync = autosync.reduce((a, b) => {
                 if (this.name === b) return a * 0; // file
-                else if (this.path.includes(`${b}/`)) return a * 0; // directory
+                else if (this.path.includes(`${b}/`)) return a * 0; // directory,
+                else if (b.includes('*')) { // extension
+                    const main = b.replace('*','')
+                    if (this.path.slice(-main.length) === main) return a * 0
+                    else return a * 1
+                }
+
                 else return a * 1;
               }, 1) ? true : false
 
-            if (this.debug && force) console.warn(`Forcing save of ${this.path}`)
+            if (this.debug && autosync) console.warn(`Forcing save of ${this.path}`)
 
             // Check Equivalence
-            if (force || toSave){
+            if (autosync || toSave){
 
                     if (toSave) this.storage.buffer = toSave // Set buffer
 
@@ -287,7 +296,7 @@ export default class RangeFile {
                         if (bodyEncoded) this['#text'] = null // Will recompile the text from buffer
                       } 
 
-                      // Was Forced
+                      // Autosynced
                       else {
                         await this.setOriginal();
                         await this.setOriginal("text");
@@ -299,11 +308,11 @@ export default class RangeFile {
         }
     }
 
-    // Always Force Save Remote Files
-    save = async (force: boolean | string[] =!!this.remote) => {
+    // Always Autosync Remote Files
+    save = async (autosync: boolean | string[] = !!this.remote) => {
 
             // Save Self
-            const file = await this.sync(force, true)
+            const file = await this.sync(autosync, true)
 
             if (file instanceof Blob){
                 const writable = await this.fileSystemHandle.createWritable()

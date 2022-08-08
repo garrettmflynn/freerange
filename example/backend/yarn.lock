@@ -456,12 +456,10 @@
 
 "tinybuild@file:../../../tinybuild":
   "resolved" "file:../../../tinybuild"
-  "version" "0.3.140"
+  "version" "0.3.172"
   dependencies:
-    "chalk" "^5.0.1"
     "chokidar" "~3.5.3"
-    "esbuild" "~0.14.41"
-    "esbuild-plugin-d.ts" "^1.1.0"
+    "esbuild" "~0.14.49"
     "ws" "^8.5.0"
 
 "toidentifier@1.0.1":

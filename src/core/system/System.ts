@@ -46,7 +46,7 @@ export default class System {
 
     // Controls
     ignore: SystemInfo['ignore'] = []
-    forceSave: SystemInfo['forceSave'] = []
+    autosync: SystemInfo['autosync'] = []
 
     debug: SystemInfo['debug']
     // registry: SystemInfo['registry']
@@ -315,10 +315,10 @@ open = async (path, create?:boolean) => {
 }
 
 // ------------ Core Save Method ------------
-save = async (force, progress:ProgressCallbackType = this.progress) => await save(this.name, Array.from(this.files.list.values()), force || this.forceSave, progress) // Save files with dependencies
+save = async (autosync, progress:ProgressCallbackType = this.progress) => await save(this.name, Array.from(this.files.list.values()), autosync || this.autosync, progress) // Save files with dependencies
 
 // ------------ RangeFile Sync Method ------------
-sync = async () => await iterAsync(this.files.list.values(), async entry => await entry.sync())
+sync = async (autosync) => await iterAsync(this.files.list.values(), async entry => await entry.sync(autosync || this.autosync))
 
 // ------------ Core Transfer Method ------------
 transfer = async (target:System) => await transfer(this, target)
