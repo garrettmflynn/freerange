@@ -1,4 +1,6 @@
 export const get = (path, rel = '') => {
+    
+    rel = rel.split('/').filter(v => v != '..').join('/') // Remove leading ..
 
     if (rel[rel.length - 1] === '/') rel = rel.slice(0, -1) // Remove trailing slashes
 
