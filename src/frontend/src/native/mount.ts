@@ -11,7 +11,7 @@ const onhandle = async (handle, base = '', system: System, progressCallback:Conf
     await verifyPermission(handle, true)
 
     // Skip Directory Name in the Base String
-    if (handle.name != system.name) base = (base) ? path.get(handle.name, base) : handle.name
+    if (handle.name != system.name) base = (base) ? path.get(handle.name, base, false, true) : handle.name
 
     const files = []
     if (handle.kind === 'file') {

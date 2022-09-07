@@ -21,7 +21,7 @@ export const esm = (suffix, type) => {
     else return false
 }
 
-export const get = (type, name?:string, codecs?: Codecs) => {    
+export const get = (type, name:string, codecs: Codecs) => {    
     let mimeType = type
     const isZipped = zipped(fullSuffix(name), mimeType, codecs)
     const sfx = suffix(name)

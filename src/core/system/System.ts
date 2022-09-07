@@ -4,7 +4,7 @@ import { ProgressCallbackType } from '../types/config'
 
 import RangeFile from '../RangeFile'
 import deepClone from '../utils/clone'
-import { load } from './core/load'
+import { createFile, load } from './core/load'
 import save from './core/save'
 import iterAsync from '../utils/iterate'
 import { createFile as createRemoteFile } from './remote'
@@ -268,7 +268,17 @@ export default class System {
         this.dependents[path].set(file.path, file)
     }
 
-    add = (file: RangeFile) => {
+    addExternal = async (path: string, file:string | Blob) => {
+        if (typeof file === 'string') {
+            const o  = info.get(undefined, path, this.codecs)
+            var enc = new TextEncoder(); // always utf-8
+            file = new Blob([enc.encode(file)], { type: o.mimeType })
+        }
+
+        return await this.load(file as Blob, path)
+    }
+
+    add = (file: RangeFile, overwrite: boolean = true) => {
          
         // // Overwrite Existing Files
         if (!this.files.list.has(file.path)) {
@@ -277,7 +287,14 @@ export default class System {
 
             // Add File to Groups
             this.groupConditions.forEach(func => func(file, file.path, this.files))
-        } else console.warn(`${file.path} already exists in the ${this.name} system!`)
+        }
+        else{
+            console.warn(`${file.path} already exists in the ${this.name} system! Overwriting...`);
+            if (overwrite) {
+              const oldFile = this.files.list.get(file.path)
+              oldFile.apply(file);
+            }
+          }
 
 }
 

@@ -57,6 +57,7 @@ export const load = async (file, config: LoadConfigType) => {
                 await file.init()
             }
 
+
             system.add(file) // Add File in load
 
             return file as RangeFile

@@ -16,11 +16,7 @@ const re = /import([ \n\t]*(?:(?:\* (?:as .+))|(?:[^ \n\t\{\}]+[ \n\t]*,?)|(?:[ 
 const moduleDataURI = (text, mimeType='text/javascript') => `data:${mimeType};base64,` + btoa(text);
 
 // Direct Import of ES6 Modules
-const esmImport = async (text) => {
-    let imported = await import(moduleDataURI(text))
-    if (imported.default && Object.keys(imported).length === 1) imported = imported.default
-    return imported
-}
+const esmImport = async (text) => await import(moduleDataURI(text))
 
 
 const safeESMImport =  async (text, config:ESMConfigType={}, onBlob?:Function, output: 'text') => {

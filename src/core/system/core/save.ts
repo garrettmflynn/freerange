@@ -14,9 +14,14 @@ const save = (name:string, files: RangeFile[], force?: boolean | string[], progr
     return new Promise(async (resolve, reject) => {
         let i = 0
         const firstFile = files.shift()
-        await saveEach(firstFile, {progressCallback, name, force}, i, length) // Check first file in case of transfer
-        await iterAsync(files, (f) => saveEach(f, {progressCallback, name, force}, i, length))
-        resolve(true)
+        if (firstFile){
+            await saveEach(firstFile, {progressCallback, name, force}, i, length) // Check first file in case of transfer
+            await iterAsync(files, (f) => saveEach(f, {progressCallback, name, force}, i, length))
+            resolve(true)
+        } else {
+            console.warn('No files to save')
+            resolve(false)
+        }
     })
 }
 
