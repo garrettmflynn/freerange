@@ -55,7 +55,7 @@ export default class System {
     groups: Group = {}
     groupConditions: Set<Function> = new Set()
 
-    constructor(name?: string, systemInfo: SystemInfo = {}) {
+    constructor(name?: string | null, systemInfo: SystemInfo = {}) {
 
         this.apply(Object.assign(systemInfo, {name}))
 
@@ -102,45 +102,45 @@ export default class System {
         }
 
         // -------------- Set Native Info (default) --------------
-        if (this.isNative(this.name)){
-            const native = await this.mountNative(this.name, mountConfig)  // this.native set internally
-            if (!native) console.error('Unable to mount native filesystem!')
+        if (this.name !== null){
+            if (this.isNative(this.name)){
+                const native = await this.mountNative(this.name, mountConfig)  // this.native set internally
+                if (!native) console.error('Unable to mount native filesystem!')
+                else if (this.oninit instanceof Function) this.oninit(native) // send directory handle
+                return
+            }
+
+            // -------------- Set Remote Info --------------
             else {
-                // Send Directory Handle on Initialization 
-                if (this.oninit instanceof Function) this.oninit(native)
-            }
-        }
 
-        // -------------- Set Remote Info --------------
-        else {
+                const path = this.name
+                const isURL = url.isURL(path)
+                const fileName = info.name(path)
+                const suffix = info.suffix(path)
 
-            const path = this.name
-            const isURL = url.isURL(path)
-            const fileName = info.name(path)
-            const suffix = info.suffix(path)
+                if (isURL){
 
-            if (isURL){
+                    // Case #1: Single File (including esm)
+                    if (fileName && suffix) {
+                        const path = this.name
+                        this.root = info.directory(path)
+                        const file = await this.open(fileName) // Open the file
+                        await file.body // Load file body immediately
+                    } 
 
-                // Case #1: Single File (including esm)
-                if (fileName && suffix) {
-                    const path = this.name
-                    this.root = info.directory(path)
-                    const file = await this.open(fileName) // Open the file
-                    await file.body // Load file body immediately
-                } 
-
-                // Case #2: Freerange System
-                else {
-                    await this.mountRemote(this.name, mountConfig).catch((e) => console.warn('System initialization failed.', e)) // this root set internally
+                    // Case #2: Freerange System
+                    else {
+                        await this.mountRemote(this.name, mountConfig).catch((e) => console.warn('System initialization failed.', e)) // this root set internally
+                    }
                 }
+
+                // Case #3: Arbitrary Collection of Remote Files
+                else if (this.name) this.root = ''
             }
-
-            // Case #3: Arbitrary Collection of Remote Files
-            else if (this.name) this.root = ''
-
-            // Send Name on Initialization 
-            if (this.oninit instanceof Function) this.oninit(this.name)
         }
+        
+        // Send Name on Initialization 
+        if (this.oninit instanceof Function) this.oninit(this.name)
 
     }
 
@@ -265,17 +265,36 @@ export default class System {
         this.dependents[path].set(file.path, file)
     }
 
+    addExternal = async (path: string, file:string | Blob) => {
+        if (typeof file === 'string') {
+            const o  = info.get(undefined, path, this.codecs)
+            var enc = new TextEncoder(); // always utf-8
+            file = new Blob([enc.encode(file)], { type: o.mimeType })
+        }
+
+        return await this.load(file as Blob, path)
+    }
+
     add = (file: RangeFile) => {
-         
-        // // Overwrite Existing Files
-        if (!this.files.list.has(file.path)) {
-            // console.warn(`Overwriting existing ${file.path} file`); // TODO: Overwrite all other entries too...
-            // this.files.list.delete(file.path);
 
-            // Add File to Groups
-            this.groupConditions.forEach(func => func(file, file.path, this.files))
-        } else console.warn(`${file.path} already exists in the ${this.name} system!`)
+        let has = false
+        let check = (path) => {
+          const res = this.files.list.has(path)
+          if (res) has = path
+          return res
+        }
+  
+        // Check equivalent paths
+        let found = check(file.path)
+        if (!found) found = check(`https://${file.path}`)
+        if (!found) found = check(`http://${file.path}`)
 
+        if (has) {
+            const oldFile = this.files.list.get(has);
+            oldFile.apply(file);
+        }
+
+        this.groupConditions.forEach((func) => func(file, file.path, this.files)); // Add File to Groups
 }
 
 
@@ -332,8 +351,7 @@ apply = async (system: any) => {
     // Transfer Files that were Loaded
     const files = system.files?.list
     if (files){
-        await iterAsync(files, async (newFile) => {
-            console.log('NewFile', newFile)
+        await iterAsync(Array.from(files.values()), async (newFile) => {
             const path = newFile.path
             let f = this.files.list.get(newFile.path) // get existing file
 
