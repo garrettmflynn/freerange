@@ -5,7 +5,9 @@
 [![Discord](https://img.shields.io/badge/community-discord-7289da.svg?sanitize=true)](https://discord.gg/CDxskSh9ZB)
 
 
-**freerange** is a set of import and export utilities with *free* range-request support for remote files.
+**freerange** is a set of import and export utilities (using the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API)) with *free* range-request support for remote files.
+
+> **Note:** **freerange** is a core library of the [Brains@Play Framework](https://github.com/brainsatplay/brainsatplay/README.md)
 
 ### Range Request Support 
 - [x] .edf
